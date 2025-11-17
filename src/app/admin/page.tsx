@@ -189,9 +189,23 @@ interface NewPermissionForm {
 }
 
 export default function AdminDashboard() {
-  const { user, permissions, isSuperAdmin, hasPermission, hasModuleAccess } = useAuth();
+  const { user, permissions, isSuperAdmin, hasPermission, hasModuleAccess , isAuthenticated, showLogin} = useAuth();
   const { showSnackbar } = useSnackbar();
-  
+   // Authentication check - show login if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <Box sx={{ p: 3, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+        <Button 
+          variant="contained" 
+          size="large"
+          onClick={() => showLogin()} // Wrap in arrow function to handle the event properly
+          startIcon={<AdminPanelSettings />}
+        >
+          Login to Access Admin Dashboard
+        </Button>
+      </Box>
+    );
+  }
   const [activeTab, setActiveTab] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
   const [users, setUsers] = useState<UserWithPermissions[]>([]);
