@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Box,
   Typography,
@@ -53,7 +54,9 @@ import {
   AdminPanelSettings,
   Group,
   Policy,
-  AccessTime
+  AccessTime,
+  Lock,
+  Satellite as SatelliteIcon
 } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSnackbar } from '@/contexts/SnackbarContext';
@@ -191,18 +194,182 @@ interface NewPermissionForm {
 export default function AdminDashboard() {
   const { user, permissions, isSuperAdmin, hasPermission, hasModuleAccess , isAuthenticated, showLogin} = useAuth();
   const { showSnackbar } = useSnackbar();
-   // Authentication check - show login if not authenticated
+  const router = useRouter();
+
+  // Authentication check - show login if not authenticated
   if (!isAuthenticated) {
     return (
-      <Box sx={{ p: 3, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
-        <Button 
-          variant="contained" 
-          size="large"
-          onClick={() => showLogin()} // Wrap in arrow function to handle the event properly
-          startIcon={<AdminPanelSettings />}
+      <Box
+        sx={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'linear-gradient(to right, #1a1a2e, #16213e, #0f3460)',
+          p: 2,
+        }}
+      >
+        <Paper
+          elevation={8}
+          sx={{
+            p: 4,
+            maxWidth: 450,
+            width: '100%',
+            borderRadius: 2,
+            background: 'linear-gradient(to bottom, #1a1a2e, #16213e)',
+            border: '1px solid rgba(251, 191, 36, 0.2)',
+            boxShadow: '0 8px 32px rgba(251, 191, 36, 0.2)'
+          }}
         >
-          Login to Access Admin Dashboard
-        </Button>
+          <Box sx={{ textAlign: 'center', mb: 4 }}>
+            <AdminPanelSettings 
+              sx={{ fontSize: 80, color: '#fbbf24', mb: 2 }} 
+            />
+            <Typography 
+              variant="h4" 
+              component="h1" 
+              gutterBottom 
+              fontWeight="bold"
+              sx={{
+                background: 'linear-gradient(to right, #fbbf24, #fcd34d, #fbbf24)',
+                backgroundClip: 'text',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                filter: 'drop-shadow(0 2px 4px rgba(251, 191, 36, 0.3))'
+              }}
+            >
+              Admin Portal
+            </Typography>
+            <Typography variant="body1" sx={{ color: 'rgba(252, 211, 77, 0.8)', mt: 1 }}>
+              Government Mining Monitoring System
+            </Typography>
+          </Box>
+
+          <Box sx={{ 
+            mb: 3, 
+            p: 2, 
+            backgroundColor: 'rgba(251, 191, 36, 0.1)', 
+            border: '1px solid rgba(251, 191, 36, 0.3)',
+            borderRadius: 1
+          }}>
+            <Typography variant="body2" sx={{ color: 'rgba(252, 211, 77, 0.8)', textAlign: 'center' }}>
+              🔒 Secure government portal. Access is restricted to authorized personnel only.
+            </Typography>
+          </Box>
+
+          <Button
+            variant="contained"
+            size="large"
+            fullWidth
+            onClick={() => showLogin()}
+            startIcon={<AdminPanelSettings />}
+            sx={{ 
+              backgroundColor: '#fbbf24',
+              color: '#1a1a2e',
+              fontWeight: 600,
+              textTransform: 'none',
+              fontSize: '1rem',
+              py: 1.5,
+              '&:hover': {
+                backgroundColor: '#fcd34d',
+                boxShadow: '0 4px 12px rgba(251, 191, 36, 0.4)'
+              }
+            }}
+          >
+            Login to Admin Dashboard
+          </Button>
+
+          <Typography variant="body2" sx={{ mt: 3, textAlign: 'center', color: 'rgba(252, 211, 77, 0.6)' }}>
+            Contact system administrator if you need access
+          </Typography>
+        </Paper>
+      </Box>
+    );
+  }
+
+  // Authorization check - only super admins can access admin dashboard
+  if (!isSuperAdmin()) {
+    return (
+      <Box
+        sx={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'linear-gradient(to right, #1a1a2e, #16213e, #0f3460)',
+          p: 2,
+        }}
+      >
+        <Paper
+          elevation={8}
+          sx={{
+            p: 4,
+            maxWidth: 450,
+            width: '100%',
+            borderRadius: 2,
+            background: 'linear-gradient(to bottom, #1a1a2e, #16213e)',
+            border: '1px solid rgba(251, 191, 36, 0.2)',
+            boxShadow: '0 8px 32px rgba(251, 191, 36, 0.2)'
+          }}
+        >
+          <Box sx={{ textAlign: 'center', mb: 4 }}>
+            <Lock 
+              sx={{ fontSize: 80, color: '#ef4444', mb: 2 }} 
+            />
+            <Typography 
+              variant="h4" 
+              component="h1" 
+              gutterBottom 
+              fontWeight="bold"
+              sx={{
+                color: '#ef4444',
+              }}
+            >
+              Access Denied
+            </Typography>
+            <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.7)', mt: 1 }}>
+              Admin Portal
+            </Typography>
+          </Box>
+
+          <Box sx={{ 
+            mb: 3, 
+            p: 2, 
+            backgroundColor: 'rgba(239, 68, 68, 0.1)', 
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            borderRadius: 1
+          }}>
+            <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.8)', textAlign: 'center' }}>
+              You do not have permission to access the admin portal. Only system administrators can access this area.
+            </Typography>
+          </Box>
+
+          <Button
+            variant="contained"
+            size="large"
+            fullWidth
+            onClick={() => router.push('/geoanalyst-dashboard')}
+            startIcon={<SatelliteIcon />}
+            sx={{ 
+              backgroundColor: '#fbbf24',
+              color: '#1a1a2e',
+              fontWeight: 600,
+              textTransform: 'none',
+              fontSize: '1rem',
+              py: 1.5,
+              '&:hover': {
+                backgroundColor: '#fcd34d',
+                boxShadow: '0 4px 12px rgba(251, 191, 36, 0.4)'
+              }
+            }}
+          >
+            Go to Geo Analyst Dashboard
+          </Button>
+
+          <Typography variant="body2" sx={{ mt: 3, textAlign: 'center', color: 'rgba(252, 211, 77, 0.6)' }}>
+            Contact system administrator if you need admin access
+          </Typography>
+        </Paper>
       </Box>
     );
   }
@@ -218,6 +385,21 @@ export default function AdminDashboard() {
   // Dialog states
   const [permissionDialogOpen, setPermissionDialogOpen] = useState<boolean>(false);
   const [selectedUser, setSelectedUser] = useState<UserWithPermissions | null>(null);
+  const [addUserDialogOpen, setAddUserDialogOpen] = useState<boolean>(false);
+  const [newUserForm, setNewUserForm] = useState({
+    name: '',
+    email: '',
+    password: '',
+    phone: '',
+    designation: '',
+    department: 'NTRO',
+    userType: 'GEO_ANALYST',
+    stateName: 'West Bengal',
+    stateCode: 'WB',
+    region: 'east',
+    districtName: 'Purulia',
+    districtCode: 'WB15',
+  });
   
   // New permission form
   const [newPermission, setNewPermission] = useState<NewPermissionForm>({
@@ -398,164 +580,253 @@ export default function AdminDashboard() {
   }
 
   return (
-    <Box sx={{ flexGrow: 1, p: 3 }}>
-      {/* Header */}
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <AdminPanelSettings fontSize="large" />
-          Admin Dashboard
-        </Typography>
-        <Typography variant="body1" color="text.secondary">
-          Manage users, permissions, and system configurations
-        </Typography>
-      </Box>
+    <Box sx={{ 
+      minHeight: '100vh',
+      background: 'linear-gradient(to right, #1a1a2e, #16213e, #0f3460)',
+      p: 3,
+      flexGrow: 1
+    }}>
+      <Box sx={{ maxWidth: 1400, mx: 'auto' }}>
+        {/* Header */}
+        <Box sx={{ mb: 4 }}>
+          <Typography 
+            variant="h4" 
+            gutterBottom 
+            sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 2,
+              background: 'linear-gradient(to right, #fbbf24, #fcd34d, #fbbf24)',
+              backgroundClip: 'text',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              fontWeight: 'bold'
+            }}
+          >
+            <AdminPanelSettings fontSize="large" sx={{ color: '#fbbf24' }} />
+            Admin Dashboard
+          </Typography>
+          <Typography variant="body1" sx={{ color: 'rgba(252, 211, 77, 0.7)' }}>
+            Manage users, permissions, and system configurations
+          </Typography>
+        </Box>
 
-      {/* Access Level Info */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Card>
-            <CardContent>
-              <Typography color="text.secondary" gutterBottom>
-                Access Level
-              </Typography>
-              <Typography variant="h5" component="div">
-                Level {permissions?.accessLevel?.globalVerificationLevel || 1}
-              </Typography>
-              <Chip 
-                label={isSuperAdmin() ? 'Super Admin' : 'Administrator'} 
-                color={isSuperAdmin() ? 'error' : 'primary'}
-                size="small"
-                sx={{ mt: 1 }}
-              />
-            </CardContent>
-          </Card>
-        </Grid>
-        
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Card>
-            <CardContent>
-              <Typography color="text.secondary" gutterBottom>
-                Total Users
-              </Typography>
-              <Typography variant="h5" component="div">
-                {users.length}
-              </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
-                <People fontSize="small" color="action" />
-                <Typography variant="body2" sx={{ ml: 1 }}>
-                  Managed
+        {/* Access Level Info */}
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <Card sx={{
+              background: 'linear-gradient(to bottom, #16213e, #0f3460)',
+              border: '1px solid rgba(251, 191, 36, 0.2)',
+              boxShadow: '0 4px 12px rgba(251, 191, 36, 0.1)',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                border: '1px solid rgba(251, 191, 36, 0.4)',
+                boxShadow: '0 6px 16px rgba(251, 191, 36, 0.15)'
+              }
+            }}>
+              <CardContent>
+                <Typography sx={{ color: 'rgba(252, 211, 77, 0.7)' }} gutterBottom>
+                  Access Level
                 </Typography>
+                <Typography variant="h5" component="div" sx={{ color: '#fcd34d', fontWeight: 'bold' }}>
+                  Level {permissions?.accessLevel?.globalVerificationLevel || 1}
+                </Typography>
+                <Chip 
+                  label={isSuperAdmin() ? 'Super Admin' : 'Administrator'} 
+                  color={isSuperAdmin() ? 'error' : 'warning'}
+                  size="small"
+                  sx={{ 
+                    mt: 1,
+                    backgroundColor: isSuperAdmin() ? 'rgba(239, 68, 68, 0.3)' : 'rgba(251, 191, 36, 0.3)',
+                    color: isSuperAdmin() ? '#fca5a5' : '#fbbf24',
+                    borderColor: isSuperAdmin() ? 'rgba(239, 68, 68, 0.5)' : 'rgba(251, 191, 36, 0.5)',
+                    border: '1px solid'
+                  }}
+                />
+              </CardContent>
+            </Card>
+          </Grid>
+          
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <Card sx={{
+              background: 'linear-gradient(to bottom, #16213e, #0f3460)',
+              border: '1px solid rgba(251, 191, 36, 0.2)',
+              boxShadow: '0 4px 12px rgba(251, 191, 36, 0.1)',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                border: '1px solid rgba(251, 191, 36, 0.4)',
+                boxShadow: '0 6px 16px rgba(251, 191, 36, 0.15)'
+              }
+            }}>
+              <CardContent>
+                <Typography sx={{ color: 'rgba(252, 211, 77, 0.7)' }} gutterBottom>
+                  Total Users
+                </Typography>
+                <Typography variant="h5" component="div" sx={{ color: '#fcd34d', fontWeight: 'bold' }}>
+                  {users.length}
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+                  <People fontSize="small" sx={{ color: '#fbbf24' }} />
+                  <Typography variant="body2" sx={{ ml: 1, color: 'rgba(252, 211, 77, 0.7)' }}>
+                    Managed
+                  </Typography>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <Card sx={{
+              background: 'linear-gradient(to bottom, #16213e, #0f3460)',
+              border: '1px solid rgba(251, 191, 36, 0.2)',
+              boxShadow: '0 4px 12px rgba(251, 191, 36, 0.1)',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                border: '1px solid rgba(251, 191, 36, 0.4)',
+                boxShadow: '0 6px 16px rgba(251, 191, 36, 0.15)'
+              }
+            }}>
+              <CardContent>
+                <Typography sx={{ color: 'rgba(252, 211, 77, 0.7)' }} gutterBottom>
+                  Available Permissions
+                </Typography>
+                <Typography variant="h5" component="div" sx={{ color: '#fcd34d', fontWeight: 'bold' }}>
+                  {availablePermissions.length}
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+                  <Security fontSize="small" sx={{ color: '#fbbf24' }} />
+                  <Typography variant="body2" sx={{ ml: 1, color: 'rgba(252, 211, 77, 0.7)' }}>
+                    System
+                  </Typography>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <Card sx={{
+              background: 'linear-gradient(to bottom, #16213e, #0f3460)',
+              border: '1px solid rgba(251, 191, 36, 0.2)',
+              boxShadow: '0 4px 12px rgba(251, 191, 36, 0.1)',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                border: '1px solid rgba(251, 191, 36, 0.4)',
+                boxShadow: '0 6px 16px rgba(251, 191, 36, 0.15)'
+              }
+            }}>
+              <CardContent>
+                <Typography sx={{ color: 'rgba(252, 211, 77, 0.7)' }} gutterBottom>
+                  Expiring Soon
+                </Typography>
+                <Typography variant="h5" component="div" sx={{ color: '#fcd34d', fontWeight: 'bold' }}>
+                  {expiringItems.expiringPermissions.length + expiringItems.expiringRoles.length}
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+                  <AccessTime fontSize="small" sx={{ color: '#fbbf24' }} />
+                  <Typography variant="body2" sx={{ ml: 1, color: 'rgba(252, 211, 77, 0.7)' }}>
+                    Next 7 days
+                  </Typography>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+
+        {/* Tabs */}
+        <Paper sx={{ 
+          width: '100%',
+          background: 'linear-gradient(to bottom, #16213e, #0f3460)',
+          border: '1px solid rgba(251, 191, 36, 0.2)',
+          boxShadow: '0 4px 12px rgba(251, 191, 36, 0.1)'
+        }}>
+          <Tabs
+            value={activeTab}
+            onChange={handleTabChange}
+            indicatorColor="primary"
+            textColor="inherit"
+            sx={{
+              '& .MuiTab-root': {
+                color: 'rgba(252, 211, 77, 0.6)',
+                '&.Mui-selected': {
+                  color: '#fcd34d',
+                  fontWeight: 600
+                }
+              },
+              '& .MuiTabs-indicator': {
+                backgroundColor: '#fbbf24'
+              }
+            }}
+          >
+            <Tab icon={<Assignment />} label="Dashboard" />
+            <Tab icon={<People />} label="User Management" />
+            <Tab icon={<Security />} label="Permission Management" />
+            <Tab icon={<Schedule />} label="Expiry Management" />
+          </Tabs>
+
+          {/* Dashboard Tab */}
+          <TabPanel value={activeTab} index={0}>
+            {loading ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+                <CircularProgress sx={{ color: '#fbbf24' }} />
               </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Card>
-            <CardContent>
-              <Typography color="text.secondary" gutterBottom>
-                Available Permissions
-              </Typography>
-              <Typography variant="h5" component="div">
-                {availablePermissions.length}
-              </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
-                <Security fontSize="small" color="action" />
-                <Typography variant="body2" sx={{ ml: 1 }}>
-                  System
-                </Typography>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Card>
-            <CardContent>
-              <Typography color="text.secondary" gutterBottom>
-                Expiring Soon
-              </Typography>
-              <Typography variant="h5" component="div">
-                {expiringItems.expiringPermissions.length + expiringItems.expiringRoles.length}
-              </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
-                <AccessTime fontSize="small" color="action" />
-                <Typography variant="body2" sx={{ ml: 1 }}>
-                  Next 7 days
-                </Typography>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
-      {/* Tabs */}
-      <Paper sx={{ width: '100%' }}>
-        <Tabs
-          value={activeTab}
-          onChange={handleTabChange}
-          indicatorColor="primary"
-          textColor="primary"
-        >
-          <Tab icon={<Assignment />} label="Dashboard" />
-          <Tab icon={<People />} label="User Management" />
-          <Tab icon={<Security />} label="Permission Management" />
-          <Tab icon={<Schedule />} label="Expiry Management" />
-        </Tabs>
-
-        {/* Dashboard Tab */}
-        <TabPanel value={activeTab} index={0}>
-          {loading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-              <CircularProgress />
-            </Box>
-          ) : (
-            <Grid container spacing={3}>
-              {/* Recent Users */}
-              <Grid size={{ xs: 12, md: 6 }}>
-                <Typography variant="h6" gutterBottom>
-                  Recent Users
-                </Typography>
-                <TableContainer component={Paper} variant="outlined">
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>User</TableCell>
-                        <TableCell>Department</TableCell>
-                        <TableCell>Status</TableCell>
-                        <TableCell>Actions</TableCell>
-                      </TableRow>
+            ) : (
+              <Grid container spacing={3}>
+                {/* Recent Users */}
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <Typography variant="h6" gutterBottom sx={{ color: '#fcd34d' }}>
+                    Recent Users
+                  </Typography>
+                  <TableContainer component={Paper} sx={{
+                    background: 'linear-gradient(to bottom, #1a1a2e, #16213e)',
+                    border: '1px solid rgba(251, 191, 36, 0.2)'
+                  }}>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow sx={{
+                          backgroundColor: 'rgba(251, 191, 36, 0.1)',
+                          borderBottom: '1px solid rgba(251, 191, 36, 0.2)'
+                        }}>
+                          <TableCell sx={{ color: '#fbbf24', fontWeight: 600 }}>User</TableCell>
+                          <TableCell sx={{ color: '#fbbf24', fontWeight: 600 }}>Department</TableCell>
+                          <TableCell sx={{ color: '#fbbf24', fontWeight: 600 }}>Status</TableCell>
+                          <TableCell sx={{ color: '#fbbf24', fontWeight: 600 }}>Actions</TableCell>
+                        </TableRow>
                     </TableHead>
                     <TableBody>
                       {users.slice(0, 5).map((userData) => (
                         <TableRow key={userData._id}>
                           <TableCell>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <Avatar sx={{ width: 32, height: 32 }}>
+                              <Avatar sx={{ width: 32, height: 32, backgroundColor: 'rgba(251, 191, 36, 0.3)', color: '#fbbf24' }}>
                                 {userData.userId.name.charAt(0)}
                               </Avatar>
                               <Box>
-                                <Typography variant="body2" fontWeight="bold">
+                                <Typography variant="body2" fontWeight="bold" sx={{ color: '#ffffff' }}>
                                   {userData.userId.name}
                                 </Typography>
-                                <Typography variant="caption" color="text.secondary">
+                                <Typography variant="caption" sx={{ color: 'rgba(252, 211, 77, 0.6)' }}>
                                   {userData.userId.email}
                                 </Typography>
                               </Box>
                             </Box>
                           </TableCell>
-                          <TableCell>{userData.userId.department}</TableCell>
+                          <TableCell sx={{ color: '#ffffff' }}>{userData.userId.department}</TableCell>
                           <TableCell>
                             <Chip
                               label={userData.status}
                               size="small"
                               color={getStatusColor(userData.status)}
+                              sx={{
+                                backgroundColor: userData.status === 'active' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(107, 114, 128, 0.2)',
+                                color: userData.status === 'active' ? '#86efac' : '#d1d5db'
+                              }}
                             />
                           </TableCell>
                           <TableCell>
                             <IconButton 
                               size="small" 
                               onClick={() => setSelectedUser(userData)}
+                              sx={{ color: '#fbbf24', '&:hover': { backgroundColor: 'rgba(251, 191, 36, 0.1)' } }}
                             >
                               <Visibility fontSize="small" />
                             </IconButton>
@@ -569,7 +840,8 @@ export default function AdminDashboard() {
 
               {/* Expiring Items */}
               <Grid size={{ xs: 12, md: 6 }}>
-                <Typography variant="h6" gutterBottom>
+                <Typography variant="h6" gutterBottom sx={{ color: '#fcd34d' }}>
+                  Expiring Items
                   Expiring Soon
                 </Typography>
                 <List dense>
@@ -610,6 +882,7 @@ export default function AdminDashboard() {
             <Button
               variant="contained"
               startIcon={<Add />}
+              onClick={() => setAddUserDialogOpen(true)}
               disabled={!hasPermission('user_management', 'create')}
             >
               Add User
@@ -823,23 +1096,32 @@ export default function AdminDashboard() {
             <Grid container spacing={3}>
               {/* Expiring Permissions */}
               <Grid size={{ xs: 12, md: 6 }}>
-                <Card>
+                <Card sx={{
+                  background: 'linear-gradient(to bottom, #16213e, #0f3460)',
+                  border: '1px solid rgba(251, 191, 36, 0.2)',
+                  boxShadow: '0 4px 12px rgba(251, 191, 36, 0.1)'
+                }}>
                   <CardContent>
-                    <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Warning color="warning" />
+                    <Typography variant="h6" gutterBottom sx={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: 1,
+                      color: '#fcd34d'
+                    }}>
+                      <Warning sx={{ color: '#fbbf24' }} />
                       Expiring Permissions ({expiringItems.expiringPermissions.length})
                     </Typography>
                     <List dense>
                       {expiringItems.expiringPermissions.map((item, index) => (
-                        <ListItem key={index} divider>
+                        <ListItem key={index} divider sx={{ borderColor: 'rgba(251, 191, 36, 0.1)' }}>
                           <ListItemText
-                            primary={item.name}
+                            primary={<Typography sx={{ color: '#fcd34d' }}>{item.name}</Typography>}
                             secondary={
                               <Box>
-                                <Typography variant="caption" display="block">
+                                <Typography variant="caption" display="block" sx={{ color: 'rgba(252, 211, 77, 0.6)' }}>
                                   {item.email}
                                 </Typography>
-                                <Typography variant="caption" display="block">
+                                <Typography variant="caption" display="block" sx={{ color: 'rgba(252, 211, 77, 0.6)' }}>
                                   {item.role} • {item.stateCode}
                                 </Typography>
                                 <Typography variant="caption" color="error">
@@ -855,7 +1137,7 @@ export default function AdminDashboard() {
                       ))}
                       {expiringItems.expiringPermissions.length === 0 && (
                         <ListItem>
-                          <ListItemText primary="No permissions expiring in the next 7 days" />
+                          <ListItemText primary={<Typography sx={{ color: 'rgba(252, 211, 77, 0.6)' }}>No permissions expiring in the next 7 days</Typography>} />
                         </ListItem>
                       )}
                     </List>
@@ -865,17 +1147,26 @@ export default function AdminDashboard() {
 
               {/* Expiring Roles */}
               <Grid size={{ xs: 12, md: 6 }}>
-                <Card>
+                <Card sx={{
+                  background: 'linear-gradient(to bottom, #16213e, #0f3460)',
+                  border: '1px solid rgba(251, 191, 36, 0.2)',
+                  boxShadow: '0 4px 12px rgba(251, 191, 36, 0.1)'
+                }}>
                   <CardContent>
-                    <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Warning color="warning" />
+                    <Typography variant="h6" gutterBottom sx={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: 1,
+                      color: '#fcd34d'
+                    }}>
+                      <Warning sx={{ color: '#fbbf24' }} />
                       Expiring Roles ({expiringItems.expiringRoles.length})
                     </Typography>
                     <List dense>
                       {expiringItems.expiringRoles.map((item, index) => (
-                        <ListItem key={index} divider>
+                        <ListItem key={index} divider sx={{ borderColor: 'rgba(251, 191, 36, 0.1)' }}>
                           <ListItemText
-                            primary={item.name}
+                            primary={<Typography sx={{ color: '#fcd34d' }}>{item.name}</Typography>}
                             secondary={
                               <Box>
                                 <Typography variant="caption" display="block">
@@ -1133,7 +1424,12 @@ export default function AdminDashboard() {
               <Grid size={{ xs: 12 }}>
                 <Typography variant="h6" gutterBottom>State Access</Typography>
                 {selectedUser.states.map((state, index) => (
-                  <Card key={index} variant="outlined" sx={{ mb: 2 }}>
+                  <Card key={index} variant="outlined" sx={{ 
+                    mb: 2,
+                    background: 'linear-gradient(to bottom, #16213e, #0f3460)',
+                    border: '1px solid rgba(251, 191, 36, 0.2)',
+                    boxShadow: '0 2px 8px rgba(251, 191, 36, 0.1)'
+                  }}>
                     <CardContent>
                       <Typography variant="subtitle1">
                         {state.stateName} ({state.stateCode})
@@ -1160,6 +1456,297 @@ export default function AdminDashboard() {
           <Button onClick={() => setSelectedUser(null)}>Close</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Add User Dialog */}
+      <Dialog 
+        open={addUserDialogOpen} 
+        onClose={() => setAddUserDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Create New User</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2 }}>
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField
+                  fullWidth
+                  label="Full Name"
+                  value={newUserForm.name}
+                  onChange={(e) => setNewUserForm({ ...newUserForm, name: e.target.value })}
+                  required
+                />
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField
+                  fullWidth
+                  label="Email"
+                  type="email"
+                  value={newUserForm.email}
+                  onChange={(e) => setNewUserForm({ ...newUserForm, email: e.target.value })}
+                  required
+                />
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField
+                  fullWidth
+                  label="Password"
+                  type="password"
+                  value={newUserForm.password}
+                  onChange={(e) => setNewUserForm({ ...newUserForm, password: e.target.value })}
+                  required
+                  helperText="Minimum 8 characters"
+                />
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField
+                  fullWidth
+                  label="Phone"
+                  value={newUserForm.phone}
+                  onChange={(e) => setNewUserForm({ ...newUserForm, phone: e.target.value })}
+                  placeholder="+919876543210"
+                />
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField
+                  fullWidth
+                  label="Designation"
+                  value={newUserForm.designation}
+                  onChange={(e) => setNewUserForm({ ...newUserForm, designation: e.target.value })}
+                  required
+                />
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <FormControl fullWidth required>
+                  <InputLabel>Department</InputLabel>
+                  <Select
+                    value={newUserForm.department}
+                    label="Department"
+                    onChange={(e) => setNewUserForm({ ...newUserForm, department: e.target.value })}
+                  >
+                    <MenuItem value="NTRO">NTRO</MenuItem>
+                    <MenuItem value="State_Mining">State Mining</MenuItem>
+                    <MenuItem value="District_Mining">District Mining</MenuItem>
+                    <MenuItem value="Environment">Environment</MenuItem>
+                    <MenuItem value="Forest">Forest</MenuItem>
+                    <MenuItem value="Revenue">Revenue</MenuItem>
+                    <MenuItem value="Police">Police</MenuItem>
+                    <MenuItem value="External_Auditor">External Auditor</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <FormControl fullWidth>
+                  <InputLabel>User Type</InputLabel>
+                  <Select
+                    value={newUserForm.userType}
+                    label="User Type"
+                    onChange={(e) => setNewUserForm({ ...newUserForm, userType: e.target.value })}
+                  >
+                    <MenuItem value="GEO_ANALYST">Geo Analyst</MenuItem>
+                    <MenuItem value="ADMIN">Admin</MenuItem>
+                    <MenuItem value="SUPER_ADMIN">Super Admin</MenuItem>
+                    <MenuItem value="DISTRICT_ANALYST">District Analyst</MenuItem>
+                    <MenuItem value="STATE_ADMIN">State Admin</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid size={{ xs: 12 }}>
+                <Divider sx={{ my: 2 }}>
+                  <Chip label="State & District Access" />
+                </Divider>
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <FormControl fullWidth>
+                  <InputLabel>State Name</InputLabel>
+                  <Select
+                    value={newUserForm.stateName}
+                    label="State Name"
+                    onChange={(e) => {
+                      const stateName = e.target.value;
+                      // Auto-populate state code based on state name
+                      const stateCodeMap: Record<string, string> = {
+                        'West Bengal': 'WB',
+                        'Maharashtra': 'MH',
+                        'Karnataka': 'KA',
+                        'Tamil Nadu': 'TN',
+                        'Gujarat': 'GJ',
+                        'Rajasthan': 'RJ',
+                        'Odisha': 'OR',
+                        'Jharkhand': 'JH',
+                        'Chhattisgarh': 'CG',
+                        'Madhya Pradesh': 'MP',
+                        'National': 'NATIONAL'
+                      };
+                      setNewUserForm({ 
+                        ...newUserForm, 
+                        stateName,
+                        stateCode: stateCodeMap[stateName] || 'WB'
+                      });
+                    }}
+                  >
+                    <MenuItem value="West Bengal">West Bengal</MenuItem>
+                    <MenuItem value="Maharashtra">Maharashtra</MenuItem>
+                    <MenuItem value="Karnataka">Karnataka</MenuItem>
+                    <MenuItem value="Tamil Nadu">Tamil Nadu</MenuItem>
+                    <MenuItem value="Gujarat">Gujarat</MenuItem>
+                    <MenuItem value="Rajasthan">Rajasthan</MenuItem>
+                    <MenuItem value="Odisha">Odisha</MenuItem>
+                    <MenuItem value="Jharkhand">Jharkhand</MenuItem>
+                    <MenuItem value="Chhattisgarh">Chhattisgarh</MenuItem>
+                    <MenuItem value="Madhya Pradesh">Madhya Pradesh</MenuItem>
+                    <MenuItem value="National">National</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField
+                  fullWidth
+                  label="State Code"
+                  value={newUserForm.stateCode}
+                  onChange={(e) => setNewUserForm({ ...newUserForm, stateCode: e.target.value.toUpperCase() })}
+                  placeholder="WB"
+                  helperText="Auto-filled based on state selection"
+                  disabled
+                />
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField
+                  fullWidth
+                  label="District Name"
+                  value={newUserForm.districtName}
+                  onChange={(e) => setNewUserForm({ ...newUserForm, districtName: e.target.value })}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField
+                  fullWidth
+                  label="District Code"
+                  value={newUserForm.districtCode}
+                  onChange={(e) => setNewUserForm({ ...newUserForm, districtCode: e.target.value })}
+                  placeholder="WB15"
+                />
+              </Grid>
+            </Grid>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAddUserDialogOpen(false)}>Cancel</Button>
+          <Button 
+            variant="contained" 
+            onClick={async () => {
+              try {
+                // Map userType to role
+                const roleMapping: Record<string, string> = {
+                  'GEO_ANALYST': 'geo_analyst',
+                  'SENIOR_GEO_OFFICER': 'senior_geo_officer',
+                  'AI_MODEL_CUSTODIAN': 'ai_model_custodian',
+                  'DISTRICT_MINING_OFFICER': 'district_mining_officer',
+                  'STATE_ADMIN': 'state_mining_admin',
+                  'NTRO_NODAL_OFFICER': 'ntro_nodal_officer',
+                  'INTELLIGENCE_ANALYST': 'intelligence_analyst',
+                  'ADMIN': 'system_super_admin',
+                  'SUPER_ADMIN': 'system_super_admin'
+                };
+
+                const role = roleMapping[newUserForm.userType] || 'geo_analyst';
+
+                // Define default permissions based on role
+                const defaultPermissions: Record<string, Array<{ resource: string; action: string }>> = {
+                  geo_analyst: [
+                    { resource: 'satellite_imagery', action: 'read' },
+                    { resource: 'mining_analysis', action: 'create' },
+                    { resource: 'mining_analysis', action: 'read' }
+                  ],
+                  senior_geo_officer: [
+                    { resource: 'satellite_imagery', action: 'read' },
+                    { resource: 'mining_analysis', action: 'read' },
+                    { resource: 'reports_approval', action: 'approve' }
+                  ],
+                  district_mining_officer: [
+                    { resource: 'mining_analysis', action: 'read' },
+                    { resource: 'district_reports', action: 'manage' }
+                  ],
+                  state_mining_admin: [
+                    { resource: 'user_management', action: 'manage' },
+                    { resource: 'mining_analysis', action: 'manage' },
+                    { resource: 'state_reports', action: 'manage' }
+                  ],
+                  system_super_admin: [
+                    { resource: 'user_management', action: 'manage' },
+                    { resource: 'system_config', action: 'manage' }
+                  ]
+                };
+
+                const payload = {
+                  name: newUserForm.name,
+                  email: newUserForm.email,
+                  password: newUserForm.password,
+                  phone: newUserForm.phone,
+                  designation: newUserForm.designation,
+                  department: newUserForm.department,
+                  states: [
+                    {
+                      stateName: newUserForm.stateName,
+                      stateCode: newUserForm.stateCode,
+                      region: newUserForm.region,
+                      districts: [
+                        {
+                          districtName: newUserForm.districtName,
+                          districtCode: newUserForm.districtCode,
+                          category: 'mining_intensive'
+                        }
+                      ],
+                      roles: [
+                        {
+                          role: role,
+                          description: `${newUserForm.userType} role for ${newUserForm.stateName}`,
+                          permissions: defaultPermissions[role] || [],
+                          roleStatus: 'active',
+                          isActive: true
+                        }
+                      ]
+                    }
+                  ]
+                };
+
+                console.log('Creating user with payload:', payload);
+                const response = await apiClient.post('/users', payload);
+                
+                if (response.data.status === 'success') {
+                  showSnackbar('User created successfully!', 'success');
+                  setAddUserDialogOpen(false);
+                  setNewUserForm({
+                    name: '',
+                    email: '',
+                    password: '',
+                    phone: '',
+                    designation: '',
+                    department: 'NTRO',
+                    userType: 'GEO_ANALYST',
+                    stateName: 'West Bengal',
+                    stateCode: 'WB',
+                    region: 'east',
+                    districtName: 'Purulia',
+                    districtCode: 'WB15',
+                  });
+                  fetchUsers();
+                } else {
+                  showSnackbar(response.data.message || 'Failed to create user', 'error');
+                }
+              } catch (error: any) {
+                console.error('Error creating user:', error);
+                console.error('Error response:', error.response?.data);
+                showSnackbar(error.response?.data?.message || 'Failed to create user', 'error');
+              }
+            }}
+            disabled={!newUserForm.name || !newUserForm.email || !newUserForm.password}
+          >
+            Create User
+          </Button>
+        </DialogActions>
+      </Dialog>
+      </Box>
     </Box>
   );
 }

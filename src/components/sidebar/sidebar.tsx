@@ -1,6 +1,7 @@
 // components/layout/sidebar/sidebar.tsx
 "use client";
 
+import React from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -38,7 +39,8 @@ import {
   ShieldCheck,
   FileCheck,
   Building,
-  LandPlot
+  LandPlot,
+  Clock
 } from 'lucide-react';
 
 // ------------------ Types ------------------
@@ -335,6 +337,35 @@ export function AppSidebar() {
     if (isMobile) setOpenMobile(false);
   };
 
+  // Helper function to determine if user is a geo analyst
+  const isGeoAnalyst = () => {
+    if (!user || !permissions) return false;
+
+    // Check if user has geo_analyst role in any state
+    if (permissions?.states && Array.isArray(permissions.states)) {
+      for (const state of permissions.states) {
+        if (state.roles && Array.isArray(state.roles)) {
+          const hasGeoAnalystRole = state.roles.some((role: any) =>
+            role.role === 'geo_analyst' ||
+            role.role === 'senior_geo_officer' ||
+            role.role === 'ntro_nodal_officer'
+          );
+          if (hasGeoAnalystRole) return true;
+        }
+      }
+    }
+
+    // Check fallback criteria
+    const departmentMatch = user.department === 'NTRO' ||
+                           user.department === 'State_Mining' ||
+                           user.department === 'District_Mining';
+    const designationMatch = user.designation?.toLowerCase().includes('geospatial') ||
+                            user.designation?.toLowerCase().includes('geo analyst') ||
+                            user.designation?.toLowerCase().includes('analyst');
+
+    return user.userType === 'GEO_ANALYST' || departmentMatch || designationMatch;
+  };
+
   // Get user roles
   const userRoles = user ? ['authenticated'] : ['public_user'];
   const highestRole = isSuperAdmin() ? 'system_super_admin' : 
@@ -450,7 +481,7 @@ export function AppSidebar() {
           <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar">
             {/* Profile Section */}
             {isExpanded ? (
-              <div className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 border-b border-gray-100 dark:border-gray-800 px-3 py-3">
+              <div className="bg-linear-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 border-b border-gray-100 dark:border-gray-800 px-3 py-3">
                 {/* Avatar & Edit Row */}
                 <div className="flex items-center justify-between mb-3">
                   <Badge
@@ -563,6 +594,60 @@ export function AppSidebar() {
                     </Avatar>
                   </Tooltip>
                 </Badge>
+              </div>
+            )}
+
+            {/* Analysis Quick Actions Section - Below Profile */}
+            {isAuthenticated && isGeoAnalyst() && (
+              <div className={cn(
+                "space-y-1 transition-all",
+                isExpanded ? "px-2 py-3" : "px-1 py-2 flex flex-col items-center"
+              )}>
+                {/* New Analysis Button */}
+                <Tooltip
+                  title={isExpanded ? "" : "New Analysis"}
+                  placement="right"
+                >
+                  <Link
+                    href="/geoanalyst-dashboard"
+                    onClick={handleLinkClick}
+                    className={cn(
+                      "flex items-center gap-2 rounded-lg transition-colors no-underline",
+                      isExpanded ? "px-2 py-2 w-full" : "p-2",
+                      "text-black! dark:text-black! hover:text-white! hover:bg-amber-500 dark:hover:bg-amber-600"
+                    )}
+                  >
+                    <SatelliteIcon sx={{ fontSize: 18, color: 'primary.main' }} />
+                    {isExpanded && (
+                      <span className="text-sm font-normal text-black! dark:text-black!">
+                        New Analysis
+                      </span>
+                    )}
+                  </Link>
+                </Tooltip>
+
+                {/* Analysis History Button */}
+                <Tooltip
+                  title={isExpanded ? "" : "Analysis History"}
+                  placement="right"
+                >
+                  <Link
+                    href="/geoanalyst-dashboard/history"
+                    onClick={handleLinkClick}
+                    className={cn(
+                      "flex items-center gap-2 rounded-lg transition-colors no-underline",
+                      isExpanded ? "px-2 py-2 w-full" : "p-2",
+                      "text-black! dark:text-black! hover:text-white! hover:bg-amber-500 dark:hover:bg-amber-600"
+                    )}
+                  >
+                    <Clock className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                    {isExpanded && (
+                      <span className="text-sm font-normal text-black! dark:text-black!">
+                        Analysis History
+                      </span>
+                    )}
+                  </Link>
+                </Tooltip>
               </div>
             )}
 

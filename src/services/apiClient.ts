@@ -60,7 +60,14 @@ apiClient.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    console.error(`❌ API Error: ${error.response?.status} ${error.config?.url}`, error.response?.data);
+    // Only log non-401 errors, or 401 errors from non-auth endpoints
+    // 401 on auth endpoints is expected when user is not logged in
+    const isAuthEndpoint = error.config?.url?.includes('/auth/');
+    const is401 = error.response?.status === 401;
+    
+    if (!is401 || !isAuthEndpoint) {
+      console.error(`❌ API Error: ${error.response?.status} ${error.config?.url}`, error.response?.data);
+    }
 
     // Handle 401 errors (token expired)
     if (error.response?.status === 401 && !originalRequest._retry) {
@@ -105,10 +112,32 @@ apiClient.interceptors.response.use(
           document.cookie = 'refreshToken=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/;';
         }
         
+        // Dispatch auth expired event to notify AuthContext
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('auth:expired'));
+        }
+        
         // Don't redirect here - let the component handle it
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
+      }
+    }
+
+    // Handle 429 (Too Many Requests) with exponential backoff
+    if (error.response?.status === 429 && !originalRequest._retryCount) {
+      originalRequest._retryCount = originalRequest._retryCount || 0;
+      
+      if (originalRequest._retryCount < 3) {
+        originalRequest._retryCount += 1;
+        
+        // Exponential backoff: 1s, 2s, 4s
+        const delay = Math.pow(2, originalRequest._retryCount - 1) * 1000;
+        
+        console.log(`⏱️ Rate limited, retrying in ${delay}ms (attempt ${originalRequest._retryCount}/3)`);
+        
+        return new Promise((resolve) => setTimeout(resolve, delay))
+          .then(() => apiClient(originalRequest));
       }
     }
 

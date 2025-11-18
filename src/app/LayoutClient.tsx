@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { SnackbarProvider } from '@/contexts/SnackbarContext';
-
+import { AnalysisProvider } from '@/contexts/AnalysisContext';
 
 import { Box, CircularProgress } from '@mui/material';
 import { SidebarProvider } from "@/components/sidebar/provider";
@@ -68,22 +68,27 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
   const isProtectedPage = !unprotectedPages.includes(pathname);
 
   return (
-    <body className="bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+    <body 
+      className="bg-gray-50 dark:bg-gray-900 transition-colors duration-300"
+      suppressHydrationWarning
+    >
       <SnackbarProvider>
         <AuthProvider>
-          <div className="min-h-screen flex flex-col">
-            <main className="flex-1">
-              {isProtectedPage ? (
-                <ProtectedLayout>
-                  {children}
-                </ProtectedLayout>
-              ) : (
-                <div className="w-full h-full min-h-screen bg-white dark:bg-gray-900">
-                  {children}
-                </div>
-              )}
-            </main>
-          </div>
+          <AnalysisProvider>
+            <div className="min-h-screen flex flex-col">
+              <main className="flex-1">
+                {isProtectedPage ? (
+                  <ProtectedLayout>
+                    {children}
+                  </ProtectedLayout>
+                ) : (
+                  <div className="w-full h-full min-h-screen bg-white dark:bg-gray-900">
+                    {children}
+                  </div>
+                )}
+              </main>
+            </div>
+          </AnalysisProvider>
         </AuthProvider>
       </SnackbarProvider>
     </body>

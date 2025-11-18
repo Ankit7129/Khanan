@@ -35,16 +35,19 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { styled } from '@mui/material/styles';
 import { SidebarTrigger } from '../sidebar';
+import Logo from '@/components/ui/Logo';
 
-// Custom styled components
+// Custom styled components - Dark Royal Blue Theme with Golden Text
 const GradientText = styled(Typography)(({ theme }) => ({
-  background: 'linear-gradient(45deg, #1976d2 30%, #4caf50 90%)',
+  background: 'linear-gradient(to right, #fbbf24, #fcd34d, #fbbf24)', // amber-400 to yellow-400 to amber-400
   backgroundClip: 'text',
   textFillColor: 'transparent',
   WebkitBackgroundClip: 'text',
   WebkitTextFillColor: 'transparent',
   fontWeight: 'bold',
-  cursor: 'pointer'
+  cursor: 'pointer',
+  filter: 'drop-shadow(0 2px 4px rgba(251, 191, 36, 0.3))',
+  letterSpacing: '-0.025em'
 }));
 
 const RoleChip = styled(Chip)(({ theme }) => ({
@@ -135,7 +138,7 @@ export const Header = () => {
       'state_mining_admin': 'secondary',
       'district_mining_officer': 'primary',
       'senior_geo_officer': 'success',
-      'geo_analyst': 'default',
+      'geo_analyst': 'info',
       'ai_model_custodian': 'secondary',
       'auditor': 'warning',
       'research_analyst': 'info',
@@ -207,12 +210,12 @@ export const Header = () => {
   return (
     <AppBar 
       position="fixed" 
-      color="default" 
-      elevation={1}
+      elevation={0}
       sx={{ 
         zIndex: theme.zIndex.drawer + 1,
-        backgroundColor: 'background.paper',
-        borderBottom: `1px solid ${theme.palette.divider}`
+        background: 'linear-gradient(to right, #1a1a2e, #16213e, #0f3460)',
+        borderBottom: '1px solid rgba(251, 191, 36, 0.2)',
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2)'
       }}
     >
       <Toolbar sx={{ 
@@ -223,27 +226,29 @@ export const Header = () => {
       }}>
         {/* Left: Sidebar + Logo */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <SidebarTrigger />
+          <IconButton
+            sx={{ 
+              color: '#fcd34d',
+              '&:hover': { 
+                backgroundColor: 'rgba(251, 191, 36, 0.1)',
+                color: '#fbbf24'
+              }
+            }}
+          >
+            <SidebarTrigger />
+          </IconButton>
+          <Logo size={40} withCircle={true} />
           <GradientText 
             variant="h6" 
             onClick={() => router.push("/dashboard")}
             sx={{ 
               ml: 1,
-              display: { xs: 'none', sm: 'block' }
+              display: { xs: 'none', sm: 'block' },
+              cursor: 'pointer'
             }}
           >
             KhananNetra
           </GradientText>
-          <Typography 
-            variant="h6"
-            sx={{ 
-              display: { xs: 'block', sm: 'none' },
-              color: 'primary.main',
-              fontWeight: 'bold'
-            }}
-          >
-            KN
-          </Typography>
         </Box>
 
         {/* Center: Quick Actions (Desktop Only) */}
@@ -258,7 +263,14 @@ export const Header = () => {
                 sx={{ 
                   textTransform: 'none',
                   borderRadius: 2,
-                  fontSize: '0.8rem'
+                  fontSize: '0.8rem',
+                  color: '#fcd34d',
+                  borderColor: 'rgba(252, 211, 77, 0.5)',
+                  '&:hover': {
+                    borderColor: '#fbbf24',
+                    backgroundColor: 'rgba(251, 191, 36, 0.1)',
+                    color: '#fbbf24'
+                  }
                 }}
               >
                 New Analysis
@@ -274,7 +286,14 @@ export const Header = () => {
                 sx={{ 
                   textTransform: 'none',
                   borderRadius: 2,
-                  fontSize: '0.8rem'
+                  fontSize: '0.8rem',
+                  color: '#fcd34d',
+                  borderColor: 'rgba(252, 211, 77, 0.5)',
+                  '&:hover': {
+                    borderColor: '#fbbf24',
+                    backgroundColor: 'rgba(251, 191, 36, 0.1)',
+                    color: '#fbbf24'
+                  }
                 }}
               >
                 Maps
@@ -290,7 +309,14 @@ export const Header = () => {
                 sx={{ 
                   textTransform: 'none',
                   borderRadius: 2,
-                  fontSize: '0.8rem'
+                  fontSize: '0.8rem',
+                  color: '#fcd34d',
+                  borderColor: 'rgba(252, 211, 77, 0.5)',
+                  '&:hover': {
+                    borderColor: '#fbbf24',
+                    backgroundColor: 'rgba(251, 191, 36, 0.1)',
+                    color: '#fbbf24'
+                  }
                 }}
               >
                 Reports
@@ -309,9 +335,12 @@ export const Header = () => {
                     textTransform: 'none',
                     borderRadius: 2,
                     fontSize: '0.8rem',
-                    backgroundColor: 'warning.main',
+                    backgroundColor: '#fbbf24',
+                    color: '#1a1a2e',
+                    fontWeight: 600,
                     '&:hover': {
-                      backgroundColor: 'warning.dark',
+                      backgroundColor: '#fcd34d',
+                      boxShadow: '0 4px 12px rgba(251, 191, 36, 0.4)'
                     }
                   }}
                 >
@@ -333,6 +362,13 @@ export const Header = () => {
             <IconButton 
               onClick={() => router.push('/search')}
               size="small"
+              sx={{ 
+                color: '#fcd34d',
+                '&:hover': {
+                  color: '#fbbf24',
+                  backgroundColor: 'rgba(251, 191, 36, 0.1)'
+                }
+              }}
             >
               <SearchIcon fontSize="small" />
             </IconButton>
@@ -344,8 +380,25 @@ export const Header = () => {
               <IconButton 
                 onClick={() => router.push("/notifications")} 
                 size="small"
+                sx={{ 
+                  color: '#fcd34d',
+                  '&:hover': {
+                    color: '#fbbf24',
+                    backgroundColor: 'rgba(251, 191, 36, 0.1)'
+                  }
+                }}
               >
-                <Badge badgeContent={0} color="error" overlap="circular">
+                <Badge 
+                  badgeContent={0} 
+                  overlap="circular"
+                  sx={{
+                    '& .MuiBadge-badge': {
+                      backgroundColor: '#fbbf24',
+                      color: '#1a1a2e',
+                      fontWeight: 600
+                    }
+                  }}
+                >
                   <NotificationsOutlined fontSize="small" />
                 </Badge>
               </IconButton>
@@ -389,9 +442,11 @@ export const Header = () => {
                     sx={{ 
                       width: 32, 
                       height: 32,
-                      bgcolor: 'primary.main',
+                      bgcolor: '#fbbf24',
+                      color: '#1a1a2e',
                       fontSize: '0.875rem',
-                      fontWeight: 'bold'
+                      fontWeight: 'bold',
+                      border: '2px solid rgba(251, 191, 36, 0.5)'
                     }}
                   >
                     {user.name?.charAt(0).toUpperCase() || 'U'}
@@ -407,6 +462,25 @@ export const Header = () => {
                 onClick={handleProfileMenuClose}
                 transformOrigin={{ horizontal: 'right', vertical: 'top' }}
                 anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+                PaperProps={{
+                  sx: {
+                    background: 'linear-gradient(to bottom, #1a1a2e, #16213e)',
+                    border: '1px solid rgba(251, 191, 36, 0.2)',
+                    '& .MuiMenuItem-root': {
+                      color: '#ffffff',
+                      '&:hover': {
+                        backgroundColor: 'rgba(251, 191, 36, 0.1)',
+                        color: '#fcd34d'
+                      }
+                    },
+                    '& .MuiListItemIcon-root': {
+                      color: '#fcd34d'
+                    },
+                    '& .MuiDivider-root': {
+                      borderColor: 'rgba(251, 191, 36, 0.2)'
+                    }
+                  }
+                }}
               >
                 <MenuItem onClick={() => router.push('/profile')}>
                   <ListItemIcon>
@@ -445,7 +519,17 @@ export const Header = () => {
           {/* Fullscreen Toggle (Desktop Only) */}
           {!isMobile && (
             <Tooltip title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}>
-              <IconButton onClick={toggleFullscreen} size="small">
+              <IconButton 
+                onClick={toggleFullscreen} 
+                size="small"
+                sx={{ 
+                  color: '#ffffff',
+                  '&:hover': {
+                    color: '#fcd34d',
+                    backgroundColor: 'rgba(251, 191, 36, 0.1)'
+                  }
+                }}
+              >
                 {isFullscreen ? 
                   <FullscreenExit fontSize="small" /> : 
                   <Fullscreen fontSize="small" />

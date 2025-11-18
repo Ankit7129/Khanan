@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSidebar } from "../sidebar/hooks";
+import Logo from '@/components/ui/Logo';
 import { cn } from "@/lib/utils";
 
 // Sidebar items based on roles
@@ -55,6 +56,12 @@ const getSidebarItems = (userRole: string) => {
     reviewing_officer: [
       { title: "Pending Reviews", url: "/dashboard/reviews", icon: Shield, permission: "reports_approval" },
       { title: "Audit Logs", url: "/dashboard/audit", icon: FileText, permission: "audit_logs" },
+    ],
+    GEO_ANALYST: [
+      { title: "Geo-Analyst Dashboard", url: "/geoanalyst-dashboard", icon: Map, permission: "geo_analysis" },
+      { title: "My AOI Projects", url: "/dashboard/my-aoi", icon: Globe, permission: "create_aoi" },
+      { title: "Analysis History", url: "/dashboard/analysis-history", icon: BarChart, permission: "view_analysis_results" },
+      { title: "Satellite Imagery", url: "/dashboard/imagery", icon: Search, permission: "geo_analysis" },
     ],
   };
 
@@ -112,11 +119,33 @@ export function AppSidebar() {
           className={cn(
             "flex items-center p-3 rounded-lg transition-all duration-200 mx-2 mb-1",
             isActive
-              ? "bg-blue-100/90 dark:bg-blue-900/50 text-blue-600 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
-              : "hover:bg-gray-100 dark:hover:bg-gray-800 border border-transparent"
+              ? "border"
+              : "border border-transparent"
           )}
+          style={isActive ? {
+            backgroundColor: 'rgba(251, 191, 36, 0.15)',
+            borderColor: 'rgba(251, 191, 36, 0.5)',
+            color: '#fcd34d'
+          } : {
+            color: '#ffffff'
+          }}
+          onMouseEnter={(e) => {
+            if (!isActive) {
+              e.currentTarget.style.backgroundColor = 'rgba(251, 191, 36, 0.1)';
+              e.currentTarget.style.color = '#fcd34d';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!isActive) {
+              e.currentTarget.style.backgroundColor = 'transparent';
+              e.currentTarget.style.color = '#ffffff';
+            }
+          }}
         >
-          <item.icon className={cn("w-5 h-5", isActive ? "text-blue-500" : "text-gray-500")} />
+          <item.icon 
+            className="w-5 h-5" 
+            style={{ color: isActive ? '#fbbf24' : '#fcd34d' }}
+          />
           {isExpanded && (
             <span className="ml-3 text-sm font-medium truncate">{item.title}</span>
           )}
@@ -133,7 +162,13 @@ export function AppSidebar() {
             label={title} 
             size="small" 
             variant="outlined"
-            sx={{ fontSize: '0.7rem', fontWeight: 600 }}
+            sx={{ 
+              fontSize: '0.7rem', 
+              fontWeight: 600,
+              color: '#fcd34d',
+              borderColor: 'rgba(252, 211, 77, 0.5)',
+              backgroundColor: 'rgba(251, 191, 36, 0.1)'
+            }}
           />
         </Box>
       )}
@@ -153,7 +188,7 @@ export function AppSidebar() {
       <Paper
         elevation={2}
         className={cn(
-          "flex flex-col bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800",
+          "flex flex-col border-r",
           "fixed md:relative z-40 h-screen",
           isMobile
             ? openMobile
@@ -164,23 +199,36 @@ export function AppSidebar() {
             : "w-[80px]",
           "transition-all duration-300 ease-in-out"
         )}
+        sx={{
+          background: 'linear-gradient(to bottom, #1a1a2e, #16213e)',
+          borderRight: '1px solid rgba(251, 191, 36, 0.2)'
+        }}
         square
       >
         <div className="h-full flex flex-col">
           {/* Header */}
-          <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
+          <Box sx={{ 
+            p: 2, 
+            borderBottom: '1px solid rgba(251, 191, 36, 0.2)'
+          }}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: isExpanded ? 'space-between' : 'center' }}>
               {isExpanded ? (
                 <>
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <img 
-                      src="/government-logo.png" 
-                      alt="KhananNetra" 
-                      className="w-8 h-8"
-                    />
-                    <Box sx={{ ml: 2 }}>
-                      <div className="font-bold text-sm">KhananNetra</div>
-                      <div className="text-xs text-gray-500">Government Portal</div>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <Logo size={32} withCircle={true} />
+                    <Box>
+                      <div className="font-bold text-sm" style={{ 
+                        background: 'linear-gradient(to right, #fbbf24, #fcd34d, #fbbf24)',
+                        backgroundClip: 'text',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        filter: 'drop-shadow(0 2px 4px rgba(251, 191, 36, 0.3))'
+                      }}>
+                        KhananNetra
+                      </div>
+                      <div className="text-xs" style={{ color: 'rgba(252, 211, 77, 0.7)' }}>
+                        Government Portal
+                      </div>
                     </Box>
                   </Box>
                   <Badge 
@@ -188,22 +236,26 @@ export function AppSidebar() {
                     variant="dot"
                     sx={{ 
                       '& .MuiBadge-dot': { 
-                        backgroundColor: user?.isActive ? 'success.main' : 'warning.main' 
+                        backgroundColor: user?.isActive ? '#fbbf24' : '#fcd34d'
                       } 
                     }}
                   >
-                    <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main' }}>
+                    <Avatar sx={{ 
+                      width: 32, 
+                      height: 32, 
+                      bgcolor: '#fbbf24',
+                      color: '#1a1a2e',
+                      border: '2px solid rgba(251, 191, 36, 0.5)'
+                    }}>
                       {user?.name?.charAt(0) || 'U'}
                     </Avatar>
                   </Badge>
                 </>
               ) : (
                 <Tooltip title="KhananNetra" placement="right">
-                  <img 
-                    src="/government-logo.png" 
-                    alt="KhananNetra" 
-                    className="w-8 h-8"
-                  />
+                  <Box>
+                    <Logo size={32} withCircle={true} />
+                  </Box>
                 </Tooltip>
               )}
             </Box>
@@ -222,7 +274,10 @@ export function AppSidebar() {
           </div>
 
           {/* Footer */}
-          <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
+          <Box sx={{ 
+            p: 2, 
+            borderTop: '1px solid rgba(251, 191, 36, 0.2)' 
+          }}>
             {isExpanded ? (
               <Button
                 fullWidth
@@ -233,14 +288,31 @@ export function AppSidebar() {
                 sx={{ 
                   justifyContent: 'flex-start',
                   fontSize: '0.8rem',
-                  textTransform: 'none'
+                  textTransform: 'none',
+                  color: '#fcd34d',
+                  borderColor: 'rgba(252, 211, 77, 0.5)',
+                  '&:hover': {
+                    borderColor: '#fbbf24',
+                    backgroundColor: 'rgba(251, 191, 36, 0.1)',
+                    color: '#fbbf24'
+                  }
                 }}
               >
                 Logout • {user?.name}
               </Button>
             ) : (
               <Tooltip title="Logout" placement="right">
-                <IconButton onClick={logout} size="small">
+                <IconButton 
+                  onClick={logout} 
+                  size="small"
+                  sx={{
+                    color: '#fcd34d',
+                    '&:hover': {
+                      color: '#fbbf24',
+                      backgroundColor: 'rgba(251, 191, 36, 0.1)'
+                    }
+                  }}
+                >
                   <LogOut size={16} />
                 </IconButton>
               </Tooltip>

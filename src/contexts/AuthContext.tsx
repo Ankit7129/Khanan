@@ -25,6 +25,7 @@ export interface User {
   phone: string;
   designation: string;
   department: string;
+  userType?: string; // GEO_ANALYST, ADMIN, etc.
   profileImage?: string;
   isActive: boolean;
   isVerified: boolean;
@@ -314,6 +315,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Track if we've done the initial auth check
   const initialAuthCheckDone = useRef(false);
 
+  // Listen for auth expired events from apiClient
+  useEffect(() => {
+    const handleAuthExpired = () => {
+      console.log('🔐 Auth expired event received, clearing authentication...');
+      setIsAuthenticated(false);
+      setUser(null);
+      setPermissions(null);
+      
+      // Clear localStorage
+      localStorage.removeItem('authState');
+      localStorage.removeItem('userData');
+      localStorage.removeItem('authPermissions');
+      localStorage.removeItem('authTokens');
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('auth:expired', handleAuthExpired);
+      return () => window.removeEventListener('auth:expired', handleAuthExpired);
+    }
+  }, []);
+
   const checkAuth = useCallback(async (): Promise<boolean> => {
     try {
       console.log('🔐 Checking authentication...');
@@ -438,6 +460,92 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         showSnackbar('Login successful!', 'success');
         
         console.log('✅ Login completed successfully');
+        console.log('🔍 User data:', JSON.stringify(user, null, 2));
+        console.log('🔍 Permissions data:', JSON.stringify(permissions, null, 2));
+        
+        // Redirect based on user's actual role from VerifierRegistry
+        let isGeoAnalyst = false;
+        let userRoles: string[] = [];
+        
+        // Check if user has geo_analyst role in any state
+        if (permissions?.states && Array.isArray(permissions.states)) {
+          console.log('📋 Checking states for roles...');
+          for (const state of permissions.states) {
+            console.log(`   State: ${state.stateName}`);
+            if (state.roles && Array.isArray(state.roles)) {
+              state.roles.forEach((role: any) => {
+                console.log(`      Role: ${role.role}, Status: ${role.roleStatus}`);
+                userRoles.push(role.role);
+              });
+              
+              const hasGeoAnalystRole = state.roles.some((role: any) => 
+                role.role === 'geo_analyst' || 
+                role.role === 'senior_geo_officer' ||
+                role.role === 'ntro_nodal_officer'
+              );
+              if (hasGeoAnalystRole) {
+                isGeoAnalyst = true;
+                console.log('✅ Found geo-analyst role!');
+              }
+            }
+          }
+        }
+        
+        console.log('📋 User roles:', userRoles);
+        
+        // Check if user is super admin FIRST
+        const isSuperAdmin = userRoles.includes('system_super_admin') || 
+                           permissions?.accessLevel?.isSuperAdmin;
+        
+        console.log('🔍 Is Super Admin?', isSuperAdmin);
+        
+        // If super admin, go to admin dashboard
+        if (isSuperAdmin) {
+          console.log('👨‍💼 Super Admin detected, redirecting to admin dashboard');
+          router.push('/admin');
+        } else {
+          // Not super admin - check if geo-analyst
+          console.log('🔍 Checking for geo-analyst role...');
+          console.log('   Current isGeoAnalyst:', isGeoAnalyst);
+          console.log('   User roles array:', userRoles);
+          
+          if (!isGeoAnalyst) {
+            console.log('⚠️ No geo-analyst role found in permissions, checking fallbacks...');
+            
+            // Check fallback criteria - ANY non-super-admin should be geo-analyst
+            const departmentMatch = user.department === 'NTRO' || 
+                                   user.department === 'State_Mining' || 
+                                   user.department === 'District_Mining';
+            const designationMatch = user.designation?.toLowerCase().includes('geospatial') ||
+                                    user.designation?.toLowerCase().includes('geo analyst') ||
+                                    user.designation?.toLowerCase().includes('analyst');
+            
+            console.log('   Department match:', departmentMatch, '(', user.department, ')');
+            console.log('   Designation match:', designationMatch, '(', user.designation, ')');
+            
+            isGeoAnalyst = 
+              user.userType === 'GEO_ANALYST' || 
+              departmentMatch ||
+              designationMatch;
+            
+            if (isGeoAnalyst) {
+              console.log('✅ Matched via fallback criteria');
+            } else {
+              // If still no match and not super admin, default to geo-analyst
+              console.log('⚠️ No match found, defaulting to geo-analyst for non-admin users');
+              isGeoAnalyst = true;
+            }
+          }
+          
+          if (isGeoAnalyst) {
+            console.log('🗺️ Geo Analyst detected, redirecting to geo-analyst dashboard');
+            router.push('/geoanalyst-dashboard');
+          } else {
+            console.log('⚠️ Unknown user type, defaulting to admin dashboard');
+            router.push('/admin');
+          }
+        }
+        
         return true;
       }
       
@@ -732,9 +840,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       <Dialog 
         open={loginModalOpen} 
         onClose={handleModalClose} 
-        sx={{ zIndex: 99999 }}
+        sx={{ 
+          zIndex: 99999,
+          '& .MuiDialog-paper': {
+            background: 'transparent',
+            boxShadow: 'none',
+            backgroundImage: 'none',
+            margin: 'auto'
+          },
+          '& .MuiBackdrop-root': {
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            backdropFilter: 'blur(4px)'
+          }
+        }}
         maxWidth="sm"
         fullWidth
+        PaperProps={{
+          sx: {
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }
+        }}
       >
         <LoginForm
           onLoginSuccess={async (email, password) => {

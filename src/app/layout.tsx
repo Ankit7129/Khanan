@@ -9,6 +9,14 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata: Metadata = {
   title: 'KhananNetra - Mining Monitoring System',
   description: 'Government platform for mining activity monitoring and compliance',
+  icons: {
+    icon: [
+      { url: '/logo.png' },
+      { url: '/icon.png', sizes: '500x500', type: 'image/png' }
+    ],
+    shortcut: '/logo.png',
+    apple: '/logo.png',
+  },
 };
 
 export default function RootLayout({
@@ -18,6 +26,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        <link rel="icon" type="image/png" href="/logo.png" />
+      </head>
       <LayoutClient>{children}</LayoutClient>
     </html>
   );
