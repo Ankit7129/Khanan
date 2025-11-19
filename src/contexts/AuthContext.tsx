@@ -224,8 +224,60 @@ type AuthContextType = {
     stateCode?: string;
   }>;
   // Additional utilities
+  getLandingRoute: () => string;
   getTotalPermissionCount: () => number;
   getAccessibleModules: () => string[];
+};
+
+const normalizeValue = (value?: string | null) => value?.toLowerCase().trim() || '';
+
+const ADMIN_USER_TYPES = ['ADMIN', 'SUPER_ADMIN', 'system_super_admin', 'state_mining_admin'];
+const ADMIN_ROLE_KEYS = ['admin', 'super_admin', 'state_mining_admin', 'system_super_admin'];
+const GEO_ANALYST_ROLE_KEYS = ['geo_analyst', 'senior_geo_officer', 'ntro_nodal_officer'];
+const ADMIN_USER_TYPES_NORMALIZED = ADMIN_USER_TYPES.map(type => normalizeValue(type));
+
+const determineLandingRoute = (user?: User | null, permissions?: UserPermissions | null): string => {
+  if (!user) return '/login';
+
+  const normalizedUserType = normalizeValue(user.userType);
+  const roles: string[] = [];
+
+  permissions?.states?.forEach(state => {
+    state.roles?.forEach(roleAssignment => {
+      if (!roleAssignment?.role) return;
+      const isRoleActive = roleAssignment.isActive && roleAssignment.roleStatus === 'active';
+      if (isRoleActive) {
+        roles.push(roleAssignment.role);
+      }
+    });
+  });
+
+  const normalizedRoles = roles.map(role => normalizeValue(role));
+  const isSuperAdminUser = Boolean(
+    permissions?.accessLevel?.isSuperAdmin ||
+    normalizedRoles.includes('system_super_admin')
+  );
+
+  const isAdminUserType = ADMIN_USER_TYPES_NORMALIZED.includes(normalizedUserType);
+  const hasAdminRole = normalizedRoles.some(role => ADMIN_ROLE_KEYS.includes(role));
+
+  if (isSuperAdminUser || isAdminUserType || hasAdminRole) {
+    return '/admin';
+  }
+
+  const hasGeoRole = normalizedRoles.some(role => GEO_ANALYST_ROLE_KEYS.includes(role));
+  const departmentMatch = ['ntro', 'state_mining', 'district_mining'].includes(normalizeValue(user.department));
+  const designationValue = normalizeValue(user.designation);
+  const designationMatch =
+    designationValue.includes('geospatial') ||
+    designationValue.includes('geo analyst') ||
+    designationValue.includes('analyst');
+
+  if (hasGeoRole || departmentMatch || designationMatch || normalizedUserType === 'geo_analyst') {
+    return '/geoanalyst-dashboard';
+  }
+
+  return '/profile';
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -462,90 +514,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         console.log('✅ Login completed successfully');
         console.log('🔍 User data:', JSON.stringify(user, null, 2));
         console.log('🔍 Permissions data:', JSON.stringify(permissions, null, 2));
-        
-        // Redirect based on user's actual role from VerifierRegistry
-        let isGeoAnalyst = false;
-        let userRoles: string[] = [];
-        
-        // Check if user has geo_analyst role in any state
-        if (permissions?.states && Array.isArray(permissions.states)) {
-          console.log('📋 Checking states for roles...');
-          for (const state of permissions.states) {
-            console.log(`   State: ${state.stateName}`);
-            if (state.roles && Array.isArray(state.roles)) {
-              state.roles.forEach((role: any) => {
-                console.log(`      Role: ${role.role}, Status: ${role.roleStatus}`);
-                userRoles.push(role.role);
-              });
-              
-              const hasGeoAnalystRole = state.roles.some((role: any) => 
-                role.role === 'geo_analyst' || 
-                role.role === 'senior_geo_officer' ||
-                role.role === 'ntro_nodal_officer'
-              );
-              if (hasGeoAnalystRole) {
-                isGeoAnalyst = true;
-                console.log('✅ Found geo-analyst role!');
-              }
-            }
-          }
-        }
-        
-        console.log('📋 User roles:', userRoles);
-        
-        // Check if user is super admin FIRST
-        const isSuperAdmin = userRoles.includes('system_super_admin') || 
-                           permissions?.accessLevel?.isSuperAdmin;
-        
-        console.log('🔍 Is Super Admin?', isSuperAdmin);
-        
-        // If super admin, go to admin dashboard
-        if (isSuperAdmin) {
-          console.log('👨‍💼 Super Admin detected, redirecting to admin dashboard');
-          router.push('/admin');
-        } else {
-          // Not super admin - check if geo-analyst
-          console.log('🔍 Checking for geo-analyst role...');
-          console.log('   Current isGeoAnalyst:', isGeoAnalyst);
-          console.log('   User roles array:', userRoles);
-          
-          if (!isGeoAnalyst) {
-            console.log('⚠️ No geo-analyst role found in permissions, checking fallbacks...');
-            
-            // Check fallback criteria - ANY non-super-admin should be geo-analyst
-            const departmentMatch = user.department === 'NTRO' || 
-                                   user.department === 'State_Mining' || 
-                                   user.department === 'District_Mining';
-            const designationMatch = user.designation?.toLowerCase().includes('geospatial') ||
-                                    user.designation?.toLowerCase().includes('geo analyst') ||
-                                    user.designation?.toLowerCase().includes('analyst');
-            
-            console.log('   Department match:', departmentMatch, '(', user.department, ')');
-            console.log('   Designation match:', designationMatch, '(', user.designation, ')');
-            
-            isGeoAnalyst = 
-              user.userType === 'GEO_ANALYST' || 
-              departmentMatch ||
-              designationMatch;
-            
-            if (isGeoAnalyst) {
-              console.log('✅ Matched via fallback criteria');
-            } else {
-              // If still no match and not super admin, default to geo-analyst
-              console.log('⚠️ No match found, defaulting to geo-analyst for non-admin users');
-              isGeoAnalyst = true;
-            }
-          }
-          
-          if (isGeoAnalyst) {
-            console.log('🗺️ Geo Analyst detected, redirecting to geo-analyst dashboard');
-            router.push('/geoanalyst-dashboard');
-          } else {
-            console.log('⚠️ Unknown user type, defaulting to admin dashboard');
-            router.push('/admin');
-          }
-        }
-        
+
+        const landingPath = determineLandingRoute(user, permissions);
+        console.log(`➡️ Redirecting to ${landingPath}`);
+        router.push(landingPath);
+
         return true;
       }
       
@@ -791,6 +764,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return Array.from(modules);
   }, [permissions, isSuperAdmin]);
 
+  const getLandingRoute = useCallback((): string => {
+    return determineLandingRoute(user, permissions);
+  }, [user, permissions]);
+
   const value = useMemo(() => ({
     isAuthenticated,
     user,
@@ -822,6 +799,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     checkPermission,
     
     // Additional utilities
+    getLandingRoute,
     getTotalPermissionCount,
     getAccessibleModules,
   }), [
@@ -830,7 +808,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     refreshUser, checkAuth, hasPermission, hasAnyPermission, hasAllPermissions,
     hasModuleAccess, getUserRoles, getUserStates, getUserDistricts, 
     canManageResource, isSuperAdmin, getAccessLevel, getAccessTier, checkPermission,
-    getTotalPermissionCount, getAccessibleModules
+    getLandingRoute, getTotalPermissionCount, getAccessibleModules
   ]);
 
   return (

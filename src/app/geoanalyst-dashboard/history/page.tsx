@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Box,
   Container,
@@ -57,8 +58,11 @@ import {
   type HistoryStats,
   type HistoryListParams
 } from '@/services/historyService';
+import { useAuth } from '@/contexts/AuthContext';
 
 const AnalysisHistoryPage: React.FC = () => {
+  const router = useRouter();
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const [analyses, setAnalyses] = useState<AnalysisHistoryRecord[]>([]);
   const [stats, setStats] = useState<HistoryStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -89,9 +93,28 @@ const AnalysisHistoryPage: React.FC = () => {
 
   // Load data
   useEffect(() => {
+    if (!isAuthenticated || authLoading) return;
     loadData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, rowsPerPage, searchQuery, statusFilter, sortBy]);
+  }, [isAuthenticated, authLoading, page, rowsPerPage, searchQuery, statusFilter, sortBy]);
+
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.replace('/login');
+    }
+  }, [authLoading, isAuthenticated, router]);
+
+  if (authLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return null;
+  }
 
   const loadData = async () => {
     try {

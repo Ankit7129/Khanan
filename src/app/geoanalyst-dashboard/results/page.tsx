@@ -38,6 +38,7 @@ import { styled } from '@mui/material/styles';
 import { TileOverlayManager } from '@/components/geoanalyst/TileOverlayManager';
 import { ResultsStatistics } from '@/components/geoanalyst/ResultsStatistics';
 import { saveAnalysis, getAnalysisById } from '@/services/historyService';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Fix Leaflet default marker icons
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -71,6 +72,7 @@ const ResultsPage = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const analysisId = searchParams.get('id');
+  const { isAuthenticated, loading: authLoading } = useAuth();
   
   const [loading, setLoading] = useState(true);
   const [results, setResults] = useState<any>(null);
@@ -88,6 +90,24 @@ const ResultsPage = () => {
   const mapInstanceRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const selectedMarkerRef = useRef<L.Marker | null>(null);
+
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.replace('/login');
+    }
+  }, [authLoading, isAuthenticated, router]);
+
+  if (authLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return null;
+  }
 
   // Extract mine blocks from results
   const mineBlocks: MineBlock[] = React.useMemo(() => {

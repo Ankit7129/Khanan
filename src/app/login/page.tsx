@@ -21,7 +21,7 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [redirecting, setRedirecting] = useState(false);
   
-  const { login, isAuthenticated, user, loading: authLoading } = useAuth();
+  const { login, isAuthenticated, user, loading: authLoading, getLandingRoute } = useAuth();
   const { showSnackbar } = useSnackbar();
   const router = useRouter();
 
@@ -30,17 +30,11 @@ export default function LoginPage() {
     if (isAuthenticated && user && !authLoading) {
       console.log('🔄 User already authenticated, redirecting...');
       setRedirecting(true);
-      
-      // Redirect based on user role
-      if (user.userType === 'ADMIN') {
-        router.push('/admin');
-      } else if (user.userType === 'GEO_ANALYST') {
-        router.push('/geoanalyst-dashboard');
-      } else {
-        router.push('/profile');
-      }
+
+      const destination = getLandingRoute();
+      router.replace(destination);
     }
-  }, [isAuthenticated, user, authLoading, router]);
+  }, [isAuthenticated, user, authLoading, router, getLandingRoute]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

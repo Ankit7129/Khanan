@@ -1,7 +1,8 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Box, Alert } from '@mui/material';
+import { Box, Alert, CircularProgress } from '@mui/material';
+import { useAuth } from '@/contexts/AuthContext';
 import { AnalysisProgress } from '@/components/geoanalyst/AnalysisProgress';
 
 export default function AnalysisPage() {
@@ -9,6 +10,25 @@ export default function AnalysisPage() {
   const searchParams = useSearchParams();
   const analysisId = searchParams.get('id');
   const [error, setError] = useState<string | null>(null);
+  const { isAuthenticated, loading } = useAuth();
+
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      router.replace('/login');
+    }
+  }, [loading, isAuthenticated, router]);
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return null;
+  }
 
   if (!analysisId) {
     return (

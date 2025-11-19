@@ -192,100 +192,26 @@ interface NewPermissionForm {
 }
 
 export default function AdminDashboard() {
-  const { user, permissions, isSuperAdmin, hasPermission, hasModuleAccess , isAuthenticated, showLogin} = useAuth();
+  const { user, permissions, isSuperAdmin, hasPermission, hasModuleAccess , isAuthenticated, loading: authLoading } = useAuth();
   const { showSnackbar } = useSnackbar();
   const router = useRouter();
 
-  // Authentication check - show login if not authenticated
-  if (!isAuthenticated) {
+  // Authentication check - redirect to login if not authenticated
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.replace('/login');
+    }
+  }, [authLoading, isAuthenticated, router]);
+
+  if (authLoading) {
     return (
-      <Box
-        sx={{
-          minHeight: '100vh',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: 'linear-gradient(to right, #1a1a2e, #16213e, #0f3460)',
-          p: 2,
-        }}
-      >
-        <Paper
-          elevation={8}
-          sx={{
-            p: 4,
-            maxWidth: 450,
-            width: '100%',
-            borderRadius: 2,
-            background: 'linear-gradient(to bottom, #1a1a2e, #16213e)',
-            border: '1px solid rgba(251, 191, 36, 0.2)',
-            boxShadow: '0 8px 32px rgba(251, 191, 36, 0.2)'
-          }}
-        >
-          <Box sx={{ textAlign: 'center', mb: 4 }}>
-            <AdminPanelSettings 
-              sx={{ fontSize: 80, color: '#fbbf24', mb: 2 }} 
-            />
-            <Typography 
-              variant="h4" 
-              component="h1" 
-              gutterBottom 
-              fontWeight="bold"
-              sx={{
-                background: 'linear-gradient(to right, #fbbf24, #fcd34d, #fbbf24)',
-                backgroundClip: 'text',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                filter: 'drop-shadow(0 2px 4px rgba(251, 191, 36, 0.3))'
-              }}
-            >
-              Admin Portal
-            </Typography>
-            <Typography variant="body1" sx={{ color: 'rgba(252, 211, 77, 0.8)', mt: 1 }}>
-              Government Mining Monitoring System
-            </Typography>
-          </Box>
-
-          <Box sx={{ 
-            mb: 3, 
-            p: 2, 
-            backgroundColor: 'rgba(251, 191, 36, 0.1)', 
-            border: '1px solid rgba(251, 191, 36, 0.3)',
-            borderRadius: 1
-          }}>
-            <Typography variant="body2" sx={{ color: 'rgba(252, 211, 77, 0.8)', textAlign: 'center' }}>
-              🔒 Secure government portal. Access is restricted to authorized personnel only.
-            </Typography>
-          </Box>
-
-          <Button
-            variant="contained"
-            size="large"
-            fullWidth
-            onClick={() => showLogin()}
-            startIcon={<AdminPanelSettings />}
-            sx={{ 
-              backgroundColor: '#fbbf24',
-              color: '#1a1a2e',
-              fontWeight: 600,
-              textTransform: 'none',
-              fontSize: '1rem',
-              py: 1.5,
-              '&:hover': {
-                backgroundColor: '#fcd34d',
-                boxShadow: '0 4px 12px rgba(251, 191, 36, 0.4)'
-              }
-            }}
-          >
-            Login to Admin Dashboard
-          </Button>
-
-          <Typography variant="body2" sx={{ mt: 3, textAlign: 'center', color: 'rgba(252, 211, 77, 0.6)' }}>
-            Contact system administrator if you need access
-          </Typography>
-        </Paper>
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#1a1a2e' }}>
+        <CircularProgress sx={{ color: '#fbbf24' }} />
       </Box>
     );
   }
+
+  if (!isAuthenticated) return null;
 
   // Authorization check - only super admins can access admin dashboard
   if (!isSuperAdmin()) {

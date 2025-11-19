@@ -6,22 +6,18 @@ import { Box, CircularProgress } from '@mui/material';
 
 export default function Home() {
   const router = useRouter();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, loading, getLandingRoute } = useAuth();
 
   useEffect(() => {
+    if (loading) return;
+
     if (!isAuthenticated) {
-      // Not logged in, redirect to login
-      router.push('/login');
+      router.replace('/login');
     } else {
-      // Logged in, redirect based on user type
-      if (user?.userType === 'GEO_ANALYST') {
-        router.push('/geoanalyst-dashboard');
-      } else {
-        // Default to admin for super admins and other roles
-        router.push('/admin');
-      }
+      const destination = getLandingRoute();
+      router.replace(destination);
     }
-  }, [isAuthenticated, user, router]);
+  }, [isAuthenticated, getLandingRoute, router, loading]);
 
   return (
     <Box

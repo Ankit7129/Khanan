@@ -33,7 +33,7 @@ export default function GeoAnalystDashboard() {
   // Check authentication
   useEffect(() => {
     if (!loading && !isAuthenticated) {
-      router.push('/login');
+      router.replace('/login');
     }
   }, [loading, isAuthenticated, router]);
 

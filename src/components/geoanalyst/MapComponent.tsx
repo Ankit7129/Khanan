@@ -4,15 +4,13 @@ import React, { useRef, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { 
-  Box, 
-  Paper, 
-  Typography, 
-  Button, 
-  IconButton, 
-  Divider, 
-  Chip, 
-  Alert,
+import {
+  Box,
+  Paper,
+  Typography,
+  Button,
+  Divider,
+  Chip,
   Stack,
   TextField,
   List,
@@ -21,25 +19,33 @@ import {
   ListItemText,
   CircularProgress
 } from '@mui/material';
-import { 
-  Edit, 
-  CheckCircle, 
-  Cancel, 
-  Info, 
-  PlayArrow, 
-  DeleteOutline,
+import {
+  Edit,
+  CheckCircle,
+  Cancel,
+  Info,
+  PlayArrow,
   Map as MapIcon,
   Search,
   MyLocation,
   Refresh
 } from '@mui/icons-material';
+
 import { AOI } from '@/types/geoanalyst';
 import { createAOI, startAnalysis as startBackendAnalysis } from '@/services/geoanalyst/api';
 import { useAnalysis } from '@/contexts/AnalysisContext';
 import { AnalysisProgress } from './AnalysisProgress';
 
+type LeafletDefaultIconPrototype = {
+  _getIconUrl?: () => string;
+};
+
+type MapWithCleanup = L.Map & {
+  _drawingCleanup?: () => void;
+};
+
 // Fix Leaflet default marker icons
-delete (L.Icon.Default.prototype as any)._getIconUrl;
+delete (L.Icon.Default.prototype as LeafletDefaultIconPrototype)._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
   iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
@@ -57,6 +63,129 @@ interface LocationResult {
     country?: string;
   };
 }
+
+type SearchSuggestion = {
+  id: string;
+  primary: string;
+  secondary?: string;
+  lat: number;
+  lon: number;
+  source: 'dataset' | 'osm';
+};
+
+type MineLocation = {
+  id: string;
+  name: string;
+  state: string;
+  type: string;
+  lat: number;
+  lon: number;
+  aliases?: string[];
+  tags?: string[];
+};
+
+const INDIA_MINE_LOCATIONS: MineLocation[] = [
+  {
+    id: 'gevra',
+    name: 'Gevra Mega Open Cast Mine',
+    state: 'Chhattisgarh',
+    type: 'Open Cast Coal Mine',
+    lat: 22.3607,
+    lon: 82.7127,
+    aliases: ['Gevra OC', 'Korba Coalfields'],
+    tags: ['coal', 'open cast', 'south eastern coalfields'],
+  },
+  {
+    id: 'dipka',
+    name: 'Dipka Open Cast Mine',
+    state: 'Chhattisgarh',
+    type: 'Open Cast Coal Mine',
+    lat: 22.3698,
+    lon: 82.6572,
+    aliases: ['Dipka OC', 'SECL Dipka'],
+    tags: ['coal', 'korba cluster'],
+  },
+  {
+    id: 'kusmunda',
+    name: 'Kusmunda Mine',
+    state: 'Chhattisgarh',
+    type: 'Open Cast Coal Mine',
+    lat: 22.3511,
+    lon: 82.7046,
+    aliases: ['Kusmunda OC'],
+    tags: ['coal', 'korba industrial'],
+  },
+  {
+    id: 'talcher',
+    name: 'Talcher Coalfields',
+    state: 'Odisha',
+    type: 'Coal Mining Cluster',
+    lat: 20.9501,
+    lon: 85.2336,
+    aliases: ['Hingula Mines', 'MCL Talcher'],
+    tags: ['mcl', 'coal', 'hingula'],
+  },
+  {
+    id: 'kothagudem',
+    name: 'Singareni Collieries (Kothagudem)',
+    state: 'Telangana',
+    type: 'Underground & Open Cast Coal Mines',
+    lat: 17.5531,
+    lon: 80.6264,
+    aliases: ['SCCL', 'Kothagudem Collieries'],
+    tags: ['coal', 'singareni'],
+  },
+  {
+    id: 'neyveli',
+    name: 'Neyveli Lignite Mine',
+    state: 'Tamil Nadu',
+    type: 'Lignite Mine',
+    lat: 11.5456,
+    lon: 79.4771,
+    aliases: ['NLC Neyveli'],
+    tags: ['lignite', 'thermal'],
+  },
+  {
+    id: 'raniganj',
+    name: 'Raniganj Coalfields',
+    state: 'West Bengal',
+    type: 'Coal Mining Cluster',
+    lat: 23.6232,
+    lon: 87.1325,
+    aliases: ['Eastern Coalfields'],
+    tags: ['coal', 'raniganj'],
+  },
+  {
+    id: 'jharia',
+    name: 'Jharia Coalfield',
+    state: 'Jharkhand',
+    type: 'Underground Coal Mine',
+    lat: 23.7768,
+    lon: 86.4174,
+    aliases: ['Dhanbad Coal Belt'],
+    tags: ['coal', 'underground'],
+  },
+  {
+    id: 'bailadila',
+    name: 'Bailadila Iron Ore Complex',
+    state: 'Chhattisgarh',
+    type: 'Iron Ore Mine',
+    lat: 18.7064,
+    lon: 81.2357,
+    aliases: ['NMDC Bailadila'],
+    tags: ['iron ore', 'nmdc'],
+  },
+  {
+    id: 'jaduguda',
+    name: 'Jaduguda Uranium Mine',
+    state: 'Jharkhand',
+    type: 'Uranium Mine',
+    lat: 22.6543,
+    lon: 86.3514,
+    aliases: ['UCIL Jaduguda'],
+    tags: ['uranium', 'rare earth'],
+  },
+];
 
 interface EnhancedMapComponentProps {
   onAOICreated?: (aoi: AOI) => void;
@@ -79,12 +208,16 @@ const EnhancedMapComponent: React.FC<EnhancedMapComponentProps> = ({ onAOICreate
   const [aoiArea, setAoiArea] = useState<string>('0');
   const [aoiLocked, setAoiLocked] = useState(false);
   const [analysisStarted, setAnalysisStarted] = useState(false);
+  const [locationPinned, setLocationPinned] = useState(false);
   
   // Location search state
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<LocationResult[]>([]);
+  const [searchResults, setSearchResults] = useState<SearchSuggestion[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
+  const searchAbortControllerRef = useRef<AbortController | null>(null);
+  const lastQueryRef = useRef('');
+  const skipNextSearchRef = useRef(false);
 
   // Initialize map
   useEffect(() => {
@@ -120,42 +253,162 @@ const EnhancedMapComponent: React.FC<EnhancedMapComponentProps> = ({ onAOICreate
     };
   }, []);
 
-  // Location search with debounce
+  // Location search with curated mine suggestions and remote enrichment
   useEffect(() => {
-    if (searchQuery.length < 3) {
-      setSearchResults([]);
-      setShowResults(false);
+    const query = searchQuery.trim();
+
+    if (skipNextSearchRef.current) {
+      skipNextSearchRef.current = false;
       return;
     }
 
-    const delaySearch = setTimeout(async () => {
+    if (searchAbortControllerRef.current) {
+      searchAbortControllerRef.current.abort();
+      searchAbortControllerRef.current = null;
+      setIsSearching(false);
+    }
+
+    if (query.length < 2) {
+      setSearchResults([]);
+      setShowResults(false);
+      setIsSearching(false);
+      lastQueryRef.current = '';
+      return;
+    }
+
+    lastQueryRef.current = query;
+
+    const normalizedQuery = query.toLowerCase();
+    const mineMatches = INDIA_MINE_LOCATIONS
+      .map((location) => {
+        const searchPool = [
+          location.name,
+          location.state,
+          location.type,
+          ...(location.aliases || []),
+          ...(location.tags || []),
+        ]
+          .filter(Boolean)
+          .map((value) => value.toLowerCase());
+
+        const hasMatch = searchPool.some((value) => value.includes(normalizedQuery));
+        if (!hasMatch) return null;
+
+        const priority = searchPool.reduce((score, value) => {
+          if (!value.includes(normalizedQuery)) return score;
+          const index = value.indexOf(normalizedQuery);
+          return Math.min(score, index === 0 ? 0 : 1);
+        }, Number.POSITIVE_INFINITY);
+
+        return { location, priority };
+      })
+      .filter((item): item is { location: MineLocation; priority: number } => item !== null)
+      .sort((a, b) => a.priority - b.priority)
+      .slice(0, 6)
+      .map(({ location }) => ({
+        id: `mine-${location.id}`,
+        primary: location.name,
+  secondary: `${location.state} - ${location.type}`,
+        lat: location.lat,
+        lon: location.lon,
+        source: 'dataset' as const,
+      }));
+
+    setSearchResults(mineMatches);
+    setShowResults(mineMatches.length > 0);
+
+    const controller = new AbortController();
+    searchAbortControllerRef.current = controller;
+
+    const fetchRemoteSuggestions = async () => {
       setIsSearching(true);
+
       try {
         const response = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=5&addressdetails=1`,
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`,
           {
             headers: {
-              'Accept': 'application/json',
-            }
+              Accept: 'application/json',
+            },
+            signal: controller.signal,
           }
         );
-        const data = await response.json();
-        setSearchResults(data);
-        setShowResults(data.length > 0);
-      } catch (error) {
-        console.error('Search error:', error);
-        setSearchResults([]);
-      } finally {
-        setIsSearching(false);
-      }
-    }, 500); // 500ms debounce
 
-    return () => clearTimeout(delaySearch);
+        if (!response.ok) {
+          throw new Error(`Search failed with status ${response.status}`);
+        }
+
+        const data: LocationResult[] = await response.json();
+
+        if (controller.signal.aborted || lastQueryRef.current !== query) {
+          return;
+        }
+
+        const remoteSuggestions = data
+          .filter((result) => {
+            const country = result.address?.country?.toLowerCase();
+            return !country || country.includes('india');
+          })
+          .map((result) => {
+            const lat = parseFloat(result.lat);
+            const lon = parseFloat(result.lon);
+            if (Number.isNaN(lat) || Number.isNaN(lon)) return null;
+
+            const secondaryText = result.display_name
+              .split(',')
+              .slice(1, 3)
+              .map((part) => part.trim())
+              .filter(Boolean)
+              .join(', ');
+
+            const suggestion: SearchSuggestion = {
+              id: `osm-${result.place_id}`,
+              primary: result.display_name.split(',')[0],
+              secondary: secondaryText || undefined,
+              lat,
+              lon,
+              source: 'osm',
+            };
+
+            return suggestion;
+          })
+          .filter((item): item is SearchSuggestion => item !== null);
+
+        setSearchResults((prev) => {
+          const unique = new Map(prev.map((item) => [item.id, item]));
+          remoteSuggestions.forEach((suggestion) => {
+            if (!unique.has(suggestion.id)) {
+              unique.set(suggestion.id, suggestion);
+            }
+          });
+          return Array.from(unique.values()).slice(0, 10);
+        });
+        setShowResults((prev) => prev || remoteSuggestions.length > 0);
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === 'AbortError')) {
+          console.error('Search error:', error);
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsSearching(false);
+        }
+      }
+    };
+
+    const debounceTimer = window.setTimeout(fetchRemoteSuggestions, 300);
+
+    return () => {
+      if (searchAbortControllerRef.current === controller) {
+        searchAbortControllerRef.current = null;
+      }
+      controller.abort();
+      window.clearTimeout(debounceTimer);
+    };
   }, [searchQuery]);
 
-  const handleLocationSelect = (result: LocationResult) => {
-    const lat = parseFloat(result.lat);
-    const lng = parseFloat(result.lon);
+  const handleLocationSelect = (suggestion: SearchSuggestion) => {
+    const { lat, lon, primary, secondary, source } = suggestion;
+    const lng = lon;
 
     if (mapInstanceRef.current) {
       // Remove previous marker
@@ -190,15 +443,29 @@ const EnhancedMapComponent: React.FC<EnhancedMapComponentProps> = ({ onAOICreate
       });
 
       const marker = L.marker([lat, lng], { icon: customIcon }).addTo(mapInstanceRef.current);
-      marker.bindPopup(`<b>${result.display_name}</b>`).openPopup();
+      marker
+        .bindPopup(
+          `<b>${primary}</b>${secondary ? `<br/><span>${secondary}</span>` : ''}${
+            source === 'dataset' ? '<br/><em>Mine registry reference</em>' : ''
+          }`
+        )
+        .openPopup();
       searchMarkerRef.current = marker;
 
       // Zoom to location
-      mapInstanceRef.current.setView([lat, lng], 13, { animate: true });
+      const targetZoom = source === 'dataset' ? 13 : 14;
+      mapInstanceRef.current.flyTo([lat, lng], targetZoom, { duration: 1.1 });
     }
 
-    setSearchQuery(result.display_name.split(',')[0]);
+    skipNextSearchRef.current = true;
+    searchAbortControllerRef.current?.abort();
+    searchAbortControllerRef.current = null;
+    lastQueryRef.current = primary;
+    setIsSearching(false);
+    setSearchResults([]);
     setShowResults(false);
+    setSearchQuery(primary);
+    setLocationPinned(true);
   };
 
   const startDrawing = () => {
@@ -216,7 +483,7 @@ const EnhancedMapComponent: React.FC<EnhancedMapComponentProps> = ({ onAOICreate
     tempMarkersRef.current.forEach(m => m.remove());
     tempMarkersRef.current = [];
 
-    const map = mapInstanceRef.current;
+    const map = mapInstanceRef.current as MapWithCleanup;
     map.getContainer().style.cursor = 'crosshair';
 
     const onMapClick = (e: L.LeafletMouseEvent) => {
@@ -268,7 +535,7 @@ const EnhancedMapComponent: React.FC<EnhancedMapComponentProps> = ({ onAOICreate
     map.on('contextmenu', onMapRightClick);
 
     // Store cleanup function
-    (map as any)._drawingCleanup = () => {
+    map._drawingCleanup = () => {
       map.off('click', onMapClick);
       map.off('contextmenu', onMapRightClick);
       map.getContainer().style.cursor = '';
@@ -277,13 +544,13 @@ const EnhancedMapComponent: React.FC<EnhancedMapComponentProps> = ({ onAOICreate
 
   const finishDrawing = () => {
     if (!mapInstanceRef.current || drawingPoints.length < 3) {
-      alert('Please draw at least 3 points to create a polygon');
+      alert('Add at least 3 points to form the AOI.');
       return;
     }
 
-    const map = mapInstanceRef.current;
-    if ((map as any)._drawingCleanup) {
-      (map as any)._drawingCleanup();
+    const map = mapInstanceRef.current as MapWithCleanup;
+    if (map._drawingCleanup) {
+      map._drawingCleanup();
     }
 
     setIsDrawing(false);
@@ -322,7 +589,7 @@ const EnhancedMapComponent: React.FC<EnhancedMapComponentProps> = ({ onAOICreate
 
   const lockAOI = () => {
     if (drawingPoints.length < 3) {
-      alert('Please complete drawing before locking AOI');
+      alert('Finish drawing before locking the AOI.');
       return;
     }
     setAoiLocked(true);
@@ -347,14 +614,14 @@ const EnhancedMapComponent: React.FC<EnhancedMapComponentProps> = ({ onAOICreate
     setAoiBounds({ north: 0, south: 0, east: 0, west: 0 });
     setAoiArea('0');
 
-    if (mapInstanceRef.current && (mapInstanceRef.current as any)._drawingCleanup) {
-      (mapInstanceRef.current as any)._drawingCleanup();
+    if (mapInstanceRef.current) {
+      (mapInstanceRef.current as MapWithCleanup)._drawingCleanup?.();
     }
   };
 
   const startAnalysis = async () => {
     if (!aoiLocked) {
-      alert('Please lock the AOI before starting analysis');
+      alert('Lock the AOI before sending analysis.');
       return;
     }
 
@@ -412,10 +679,11 @@ const EnhancedMapComponent: React.FC<EnhancedMapComponentProps> = ({ onAOICreate
       // Navigate to analysis progress page
       router.push(`/geoanalyst-dashboard/analysis?id=${analysisResponse.analysis_id}`);
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Analysis error:', error);
       setAnalysisStarted(false);
-      alert(`Failed to start analysis:\n${error.message}\n\nPlease ensure the Python backend is running.`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      alert(`Analysis request failed:\n${errorMessage}\n\nCheck the analysis service status.`);
     }
   };
 
@@ -424,7 +692,7 @@ const EnhancedMapComponent: React.FC<EnhancedMapComponentProps> = ({ onAOICreate
     return (
       <AnalysisProgress
         analysisId={currentAnalysis.analysisId}
-        onComplete={(results) => {
+        onComplete={() => {
           // Analysis completed, context will be updated by AnalysisProgress
           // User will see results and can navigate to history
         }}
@@ -439,68 +707,272 @@ const EnhancedMapComponent: React.FC<EnhancedMapComponentProps> = ({ onAOICreate
   return (
     <Box sx={{ display: 'flex', height: '100vh', width: '100%' }}>
       {/* Control Panel */}
-      <Paper 
-        elevation={3} 
-        sx={{ 
-          width: 380, 
-          height: '100%', 
+      <Paper
+        elevation={6}
+        sx={{
+          width: 420,
+          height: '100%',
           overflowY: 'auto',
           display: 'flex',
           flexDirection: 'column',
-          borderRadius: 0
+          borderRadius: 0,
+          background: 'linear-gradient(160deg, #0b1b33 0%, #061120 60%, #050c18 100%)',
+          borderRight: '1px solid rgba(148, 163, 184, 0.18)',
+          color: '#e2e8f0'
         }}
       >
-        <Box sx={{ p: 2 }}>
-          {/* Header */}
-          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
-            <MapIcon color="primary" />
-            <Typography variant="h6" fontWeight="bold">
-              AOI Selection
+        <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 3, minHeight: '100%' }}>
+          {/* Mission Header */}
+          <Box
+            sx={{
+              p: 2.5,
+              borderRadius: 2,
+              background: 'linear-gradient(135deg, rgba(12, 30, 56, 0.95) 0%, rgba(10, 22, 42, 0.92) 100%)',
+              border: '1px solid rgba(148, 163, 184, 0.25)',
+              boxShadow: '0 18px 45px rgba(7, 14, 28, 0.45)'
+            }}
+          >
+            <Typography
+              variant="overline"
+              sx={{
+                letterSpacing: 2,
+                color: 'rgba(148, 163, 184, 0.9)',
+                textTransform: 'uppercase'
+              }}
+            >
+              Government of India | Directorate of Mining Surveillance
             </Typography>
-          </Stack>
+            <Typography variant="h6" sx={{ color: '#fcd34d', fontWeight: 700, mt: 0.5 }}>
+              Geo-Analyst Operations Console
+            </Typography>
+            <Box
+              component="ul"
+              sx={{
+                mt: 1,
+                pl: 3,
+                color: 'rgba(226, 232, 240, 0.82)',
+                fontSize: '0.82rem',
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                columnGap: 1,
+                rowGap: 0.25
+              }}
+            >
+              <Box component="li" sx={{ listStyleType: 'disc', m: 0 }}>Pin site</Box>
+              <Box component="li" sx={{ listStyleType: 'disc', m: 0 }}>Draw AOI</Box>
+              <Box component="li" sx={{ listStyleType: 'disc', m: 0 }}>Lock review</Box>
+              <Box component="li" sx={{ listStyleType: 'disc', m: 0 }}>Send report</Box>
+            </Box>
+            <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 2 }}>
+              <Chip
+                icon={<MyLocation sx={{ fontSize: 18 }} />}
+                label={locationPinned ? 'Location ready' : 'Pin location'}
+                variant="outlined"
+                sx={{
+                  borderColor: locationPinned ? 'rgba(34, 197, 94, 0.65)' : 'rgba(148, 163, 184, 0.45)',
+                  color: locationPinned ? '#bbf7d0' : 'rgba(226, 232, 240, 0.85)',
+                  backgroundColor: locationPinned ? 'rgba(22, 101, 52, 0.25)' : 'transparent',
+                  '& .MuiChip-icon': {
+                    color: locationPinned ? '#86efac' : 'rgba(148, 163, 184, 0.85)'
+                  },
+                  '& .MuiChip-label': {
+                    fontWeight: 600,
+                    letterSpacing: 0.3
+                  }
+                }}
+              />
+              <Chip
+                icon={
+                  aoiLocked ? (
+                    <CheckCircle sx={{ fontSize: 18 }} />
+                  ) : isDrawing ? (
+                    <Edit sx={{ fontSize: 18 }} />
+                  ) : drawingPoints.length >= 3 ? (
+                    <CheckCircle sx={{ fontSize: 18 }} />
+                  ) : (
+                    <MapIcon sx={{ fontSize: 18 }} />
+                  )
+                }
+                label={
+                  aoiLocked
+                    ? 'AOI locked'
+                    : isDrawing
+                    ? 'Drawing AOI'
+                    : drawingPoints.length >= 3
+                    ? 'Lock AOI'
+                    : 'Draw AOI'
+                }
+                variant="outlined"
+                sx={{
+                  borderColor: aoiLocked
+                    ? 'rgba(250, 204, 21, 0.6)'
+                    : isDrawing
+                    ? 'rgba(253, 230, 138, 0.5)'
+                    : drawingPoints.length >= 3
+                    ? 'rgba(56, 189, 248, 0.5)'
+                    : 'rgba(148, 163, 184, 0.45)',
+                  color: aoiLocked
+                    ? '#fef3c7'
+                    : isDrawing
+                    ? '#fde68a'
+                    : drawingPoints.length >= 3
+                    ? '#e0f2fe'
+                    : 'rgba(226, 232, 240, 0.85)',
+                  backgroundColor: aoiLocked
+                    ? 'rgba(161, 98, 7, 0.25)'
+                    : isDrawing
+                    ? 'rgba(146, 64, 14, 0.16)'
+                    : drawingPoints.length >= 3
+                    ? 'rgba(30, 64, 175, 0.18)'
+                    : 'transparent',
+                  '& .MuiChip-icon': {
+                    color: aoiLocked
+                      ? '#facc15'
+                      : isDrawing
+                      ? '#fbbf24'
+                      : drawingPoints.length >= 3
+                      ? '#38bdf8'
+                      : 'rgba(148, 163, 184, 0.85)'
+                  },
+                  '& .MuiChip-label': {
+                    fontWeight: 600,
+                    letterSpacing: 0.3
+                  }
+                }}
+              />
+              <Chip
+                icon={analysisStarted ? <PlayArrow sx={{ fontSize: 18 }} /> : <Info sx={{ fontSize: 18 }} />}
+                label={analysisStarted ? 'Analysis running' : 'Ready for analysis'}
+                variant="outlined"
+                sx={{
+                  borderColor: analysisStarted ? 'rgba(34, 197, 94, 0.65)' : 'rgba(148, 163, 184, 0.45)',
+                  color: analysisStarted ? '#bbf7d0' : 'rgba(226, 232, 240, 0.85)',
+                  backgroundColor: analysisStarted ? 'rgba(22, 101, 52, 0.25)' : 'transparent',
+                  '& .MuiChip-icon': {
+                    color: analysisStarted ? '#86efac' : 'rgba(148, 163, 184, 0.85)'
+                  },
+                  '& .MuiChip-label': {
+                    fontWeight: 600,
+                    letterSpacing: 0.3
+                  }
+                }}
+              />
+            </Stack>
+          </Box>
 
           {/* Location Search */}
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
-              Search Location
+          <Box sx={{ position: 'relative' }}>
+            <Typography variant="subtitle2" fontWeight="bold" gutterBottom sx={{ color: 'rgba(226, 232, 240, 0.9)' }}>
+              Select site
             </Typography>
             <TextField
               fullWidth
               size="small"
-              placeholder="Type city, state, or landmark..."
+              placeholder="Search district, coalfield, or mine"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               InputProps={{
-                startAdornment: isSearching ? (
-                  <CircularProgress size={20} sx={{ mr: 1 }} />
-                ) : (
-                  <Search sx={{ mr: 1, color: 'text.secondary' }} />
-                ),
+                startAdornment: (
+                  <Box sx={{ display: 'flex', alignItems: 'center', mr: 1 }}>
+                    {isSearching ? (
+                      <CircularProgress size={18} sx={{ color: '#fcd34d' }} />
+                    ) : (
+                      <Search sx={{ color: 'rgba(226, 232, 240, 0.85)' }} />
+                    )}
+                  </Box>
+                )
+              }}
+              sx={{
+                '& .MuiInputBase-root': {
+                  backgroundColor: 'rgba(30, 41, 59, 0.92)',
+                  borderRadius: 2,
+                  color: '#f8fafc',
+                  border: '1px solid rgba(148, 163, 184, 0.55)',
+                  boxShadow: '0 6px 24px rgba(7, 14, 28, 0.45)',
+                  transition: 'border-color 0.2s ease, box-shadow 0.2s ease'
+                },
+                '& .MuiOutlinedInput-notchedOutline': {
+                  border: 'none'
+                },
+                '& .MuiInputBase-input::placeholder': {
+                  color: 'rgba(203, 213, 225, 0.75)'
+                },
+                '& .MuiInputBase-root.Mui-focused': {
+                  border: '1px solid rgba(252, 211, 77, 0.65)',
+                  boxShadow: '0 0 0 2px rgba(252, 211, 77, 0.25)'
+                }
               }}
             />
-            
-            {/* Search Results Dropdown */}
+
             {showResults && searchResults.length > 0 && (
-              <Paper 
-                elevation={3} 
-                sx={{ 
-                  position: 'absolute', 
-                  zIndex: 1000, 
-                  width: 348,
-                  maxHeight: 300, 
+              <Paper
+                elevation={6}
+                sx={{
+                  position: 'absolute',
+                  zIndex: 1000,
+                  width: '100%',
+                  maxHeight: 320,
                   overflowY: 'auto',
-                  mt: 0.5
+                  mt: 0.75,
+                  borderRadius: 2,
+                  border: '1px solid rgba(148, 163, 184, 0.4)',
+                  background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.9))',
+                  backdropFilter: 'blur(14px)',
+                  boxShadow: '0 18px 40px rgba(7, 14, 28, 0.6)'
                 }}
               >
-                <List dense>
+                <List dense disablePadding>
                   {searchResults.map((result) => (
-                    <ListItem key={result.place_id} disablePadding>
-                      <ListItemButton onClick={() => handleLocationSelect(result)}>
-                        <ListItemText 
-                          primary={result.display_name.split(',')[0]}
-                          secondary={result.display_name.split(',').slice(1, 3).join(',')}
-                          primaryTypographyProps={{ fontSize: '0.875rem', fontWeight: 500 }}
-                          secondaryTypographyProps={{ fontSize: '0.75rem' }}
+                    <ListItem key={result.id} disablePadding divider>
+                      <ListItemButton
+                        onMouseDown={(event) => {
+                          event.preventDefault();
+                          handleLocationSelect(result);
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ' || event.key === 'Space' || event.key === 'Spacebar') {
+                            event.preventDefault();
+                            handleLocationSelect(result);
+                          }
+                        }}
+                        sx={{
+                          alignItems: 'flex-start',
+                          py: 1.25,
+                          px: 2,
+                          '&:hover': {
+                            backgroundColor: 'rgba(148, 163, 184, 0.12)'
+                          }
+                        }}
+                      >
+                        <ListItemText
+                          primary={
+                            <Stack direction="row" spacing={1} alignItems="center">
+                              <Typography fontSize="0.875rem" fontWeight={600} sx={{ color: '#f8fafc' }}>
+                                {result.primary}
+                              </Typography>
+                              <Chip
+                                size="small"
+                                label={result.source === 'dataset' ? 'Registry' : 'OSM'}
+                                sx={{
+                                  height: 20,
+                                  fontSize: '0.65rem',
+                                  borderRadius: 1.5,
+                                  border: result.source === 'dataset'
+                                    ? '1px solid rgba(250, 204, 21, 0.6)'
+                                    : '1px solid rgba(148, 163, 184, 0.55)',
+                                  backgroundColor: result.source === 'dataset'
+                                    ? 'rgba(250, 204, 21, 0.18)'
+                                    : 'rgba(30, 41, 59, 0.75)',
+                                  color: result.source === 'dataset'
+                                    ? '#fde68a'
+                                    : 'rgba(226, 232, 240, 0.9)',
+                                  '& .MuiChip-label': { px: 1.25, fontWeight: 600 }
+                                }}
+                              />
+                            </Stack>
+                          }
+                          secondary={result.secondary}
+                          secondaryTypographyProps={{ fontSize: '0.75rem', color: 'rgba(203, 213, 225, 0.8)' }}
                         />
                       </ListItemButton>
                     </ListItem>
@@ -510,64 +982,113 @@ const EnhancedMapComponent: React.FC<EnhancedMapComponentProps> = ({ onAOICreate
             )}
           </Box>
 
-          <Divider sx={{ my: 2 }} />
+          <Divider
+            textAlign="left"
+            sx={{
+              borderColor: 'rgba(148, 163, 184, 0.25)',
+              '&::before, &::after': {
+                borderColor: 'rgba(148, 163, 184, 0.25)'
+              }
+            }}
+          >
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'rgba(252, 211, 77, 0.7)',
+                letterSpacing: 2,
+                fontWeight: 600
+              }}
+            >
+              Key steps
+            </Typography>
+          </Divider>
 
-          {/* Instructions */}
-          <Alert severity="info" icon={<Info />} sx={{ mb: 2, fontSize: '0.75rem' }}>
-            <Typography variant="caption" display="block">
-              <strong>1.</strong> Search for a location (optional)
-            </Typography>
-            <Typography variant="caption" display="block">
-              <strong>2.</strong> Click "Draw AOI" and mark points on map
-            </Typography>
-            <Typography variant="caption" display="block">
-              <strong>3.</strong> Right-click to finish drawing (min 3 points)
-            </Typography>
-            <Typography variant="caption" display="block">
-              <strong>4.</strong> Click "Lock AOI" then "Start Analysis"
-            </Typography>
-          </Alert>
+          <Paper
+            variant="outlined"
+            sx={{
+              p: 2,
+              borderRadius: 2,
+              background: 'rgba(8, 23, 43, 0.75)',
+              border: '1px solid rgba(148, 163, 184, 0.25)'
+            }}
+          >
+            <Box
+              component="ol"
+              sx={{
+                pl: 3,
+                color: 'rgba(226, 232, 240, 0.85)',
+                '& li': {
+                  mb: 0.8,
+                  fontSize: '0.82rem',
+                  lineHeight: 1.5
+                }
+              }}
+            >
+              <li>Select the site.</li>
+              <li>Draw and close the AOI.</li>
+              <li>Lock and send analysis.</li>
+            </Box>
+          </Paper>
 
           {/* Drawing Controls */}
-          <Stack spacing={1.5} sx={{ mb: 2 }}>
+          <Stack spacing={1.5}>
             {!isDrawing && !aoiLocked && (
               <Button
                 fullWidth
                 variant="contained"
-                color="primary"
                 startIcon={<Edit />}
                 onClick={startDrawing}
+                sx={{
+                  background: 'linear-gradient(135deg, #2563eb 0%, #1e3a8a 100%)',
+                  color: '#f8fafc',
+                  boxShadow: '0 10px 25px rgba(37, 99, 235, 0.35)',
+                  '&:hover': { background: 'linear-gradient(135deg, #1d4ed8 0%, #1e3a8a 100%)' }
+                }}
               >
-                Draw Area of Interest
+                Draw AOI
               </Button>
             )}
 
             {isDrawing && (
               <>
-                <Chip 
-                  label={`Drawing: ${drawingPoints.length} points`}
+                <Chip
+                  label={`Drawing: ${drawingPoints.length} pts`}
                   color="warning"
                   icon={<Edit />}
+                  sx={{ bgcolor: 'rgba(253, 230, 138, 0.15)', color: '#fbbf24' }}
                 />
                 <Stack direction="row" spacing={1}>
                   <Button
                     fullWidth
                     variant="contained"
-                    color="success"
                     startIcon={<CheckCircle />}
                     onClick={finishDrawing}
                     disabled={drawingPoints.length < 3}
+                    sx={{
+                      background: 'linear-gradient(135deg, #22c55e 0%, #15803d 100%)',
+                      color: '#f0fdf4',
+                      boxShadow: '0 10px 25px rgba(34, 197, 94, 0.35)',
+                      '&:hover': { background: 'linear-gradient(135deg, #16a34a 0%, #166534 100%)' },
+                      '&.Mui-disabled': {
+                        background: 'rgba(34, 197, 94, 0.2)',
+                        color: 'rgba(240, 253, 244, 0.6)'
+                      }
+                    }}
                   >
-                    Finish
+                    Close polygon
                   </Button>
                   <Button
                     fullWidth
                     variant="outlined"
-                    color="error"
                     startIcon={<Cancel />}
                     onClick={clearAOI}
+                    sx={{
+                      color: '#fca5a5',
+                      borderColor: 'rgba(252, 165, 165, 0.5)',
+                      '&:hover': { borderColor: '#f87171', backgroundColor: 'rgba(127, 29, 29, 0.2)' }
+                    }}
                   >
-                    Cancel
+                    Abort
                   </Button>
                 </Stack>
               </>
@@ -577,11 +1098,16 @@ const EnhancedMapComponent: React.FC<EnhancedMapComponentProps> = ({ onAOICreate
               <Button
                 fullWidth
                 variant="contained"
-                color="success"
                 startIcon={<CheckCircle />}
                 onClick={lockAOI}
+                sx={{
+                  background: 'linear-gradient(135deg, #38bdf8 0%, #2563eb 100%)',
+                  color: '#eff6ff',
+                  boxShadow: '0 10px 25px rgba(14, 116, 144, 0.35)',
+                  '&:hover': { background: 'linear-gradient(135deg, #0ea5e9 0%, #1d4ed8 100%)' }
+                }}
               >
-                Lock AOI Selection
+                Lock AOI
               </Button>
             )}
           </Stack>
@@ -589,72 +1115,112 @@ const EnhancedMapComponent: React.FC<EnhancedMapComponentProps> = ({ onAOICreate
           {/* AOI Info Display */}
           {drawingPoints.length >= 3 && (
             <>
-              <Paper variant="outlined" sx={{ p: 1.5, mb: 2, bgcolor: 'grey.50' }}>
-                <Typography variant="caption" color="text.secondary" gutterBottom>
-                  GEOGRAPHIC BOUNDS
+              <Paper
+                variant="outlined"
+                sx={{
+                  p: 2,
+                  borderRadius: 2,
+                  mt: 2,
+                  background: 'rgba(15, 23, 42, 0.6)',
+                  border: '1px solid rgba(148, 163, 184, 0.25)'
+                }}
+              >
+                <Typography variant="caption" sx={{ color: 'rgba(148, 163, 184, 0.9)' }}>
+                  AOI PARAMETERS
                 </Typography>
-                <Box sx={{ mt: 0.5 }}>
-                  <Box sx={{ display: 'flex', gap: 2, mb: 0.5 }}>
-                    <Typography variant="body2" fontSize="0.75rem" sx={{ flex: 1 }}>
-                      <strong>North:</strong> {aoiBounds.north.toFixed(6)}°
-                    </Typography>
-                    <Typography variant="body2" fontSize="0.75rem" sx={{ flex: 1 }}>
-                      <strong>South:</strong> {aoiBounds.south.toFixed(6)}°
-                    </Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', gap: 2, mb: 0.5 }}>
-                    <Typography variant="body2" fontSize="0.75rem" sx={{ flex: 1 }}>
-                      <strong>East:</strong> {aoiBounds.east.toFixed(6)}°
-                    </Typography>
-                    <Typography variant="body2" fontSize="0.75rem" sx={{ flex: 1 }}>
-                      <strong>West:</strong> {aoiBounds.west.toFixed(6)}°
-                    </Typography>
-                  </Box>
-                  <Divider sx={{ my: 0.5 }} />
-                  <Typography variant="body2" fontSize="0.75rem" color="primary">
-                    <strong>Area:</strong> {aoiArea} km²
+                <Box sx={{ mt: 1, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1 }}>
+                  <Typography variant="body2" sx={{ color: '#e2e8f0', fontSize: '0.8rem' }}>
+                    <strong>North:</strong> {aoiBounds.north.toFixed(6)}°
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#e2e8f0', fontSize: '0.8rem' }}>
+                    <strong>South:</strong> {aoiBounds.south.toFixed(6)}°
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#e2e8f0', fontSize: '0.8rem' }}>
+                    <strong>East:</strong> {aoiBounds.east.toFixed(6)}°
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#e2e8f0', fontSize: '0.8rem' }}>
+                    <strong>West:</strong> {aoiBounds.west.toFixed(6)}°
                   </Typography>
                 </Box>
+                <Divider sx={{ my: 1, borderColor: 'rgba(148, 163, 184, 0.2)' }} />
+                <Typography variant="body2" sx={{ color: '#fcd34d', fontSize: '0.85rem' }}>
+                  <strong>Computed area:</strong> {aoiArea} km²
+                </Typography>
               </Paper>
 
               {aoiLocked && (
-                <Chip 
-                  label="AOI Locked ✓"
+                <Chip
+                  label="AOI locked"
                   color="success"
-                  sx={{ mb: 2, width: '100%' }}
+                  sx={{
+                    mt: 2,
+                    width: '100%',
+                    backgroundColor: 'rgba(22, 101, 52, 0.35)',
+                    color: '#bbf7d0'
+                  }}
                 />
               )}
             </>
           )}
 
           {/* Action Buttons */}
-          <Stack spacing={1}>
-            {aoiLocked && (
-              <Button
-                fullWidth
-                variant="contained"
-                color="primary"
-                size="large"
-                startIcon={<PlayArrow />}
-                onClick={startAnalysis}
-                disabled={analysisStarted}
-              >
-                {analysisStarted ? 'Analysis Started...' : 'Start Analysis'}
-              </Button>
-            )}
+          <Box
+            sx={{
+              position: 'sticky',
+              bottom: 16,
+              zIndex: 20,
+              mt: 2,
+              background: 'linear-gradient(180deg, rgba(8, 15, 28, 0.95) 0%, rgba(8, 15, 28, 0.82) 100%)',
+              borderRadius: 2,
+              border: '1px solid rgba(148, 163, 184, 0.35)',
+              boxShadow: '0 18px 36px rgba(7, 14, 28, 0.55)',
+              p: 1.5
+            }}
+          >
+            <Stack spacing={1.2}>
+              {aoiLocked && (
+                <Button
+                  fullWidth
+                  variant="contained"
+                  size="large"
+                  startIcon={<PlayArrow />}
+                  onClick={startAnalysis}
+                  disabled={analysisStarted}
+                  sx={{
+                    background: 'linear-gradient(135deg, #f59e0b 0%, #b45309 100%)',
+                    color: '#fff7ed',
+                    boxShadow: '0 12px 28px rgba(217, 119, 6, 0.35)',
+                    '&:hover': { background: 'linear-gradient(135deg, #d97706 0%, #92400e 100%)' },
+                    '&.Mui-disabled': {
+                      background: 'rgba(245, 158, 11, 0.25)',
+                      color: 'rgba(255, 247, 237, 0.65)'
+                    }
+                  }}
+                >
+                  {analysisStarted ? 'Analysis sent...' : 'Send analysis'}
+                </Button>
+              )}
 
-            {(drawingPoints.length > 0 || aoiLocked) && (
-              <Button
-                fullWidth
-                variant="outlined"
-                color="error"
-                startIcon={<Refresh />}
-                onClick={clearAOI}
-              >
-                Redraw AOI
-              </Button>
-            )}
-          </Stack>
+              {(drawingPoints.length > 0 || aoiLocked) && (
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  startIcon={<Refresh />}
+                  onClick={clearAOI}
+                  sx={{
+                    color: '#f8fafc',
+                    borderColor: 'rgba(148, 163, 184, 0.45)',
+                    '&:hover': {
+                      borderColor: '#f87171',
+                      backgroundColor: 'rgba(127, 29, 29, 0.2)'
+                    }
+                  }}
+                >
+                  Reset AOI
+                </Button>
+              )}
+            </Stack>
+          </Box>
         </Box>
       </Paper>
 

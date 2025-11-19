@@ -1,8 +1,10 @@
 'use client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function AuthDebugPage() {
+  const router = useRouter();
   const {
     user,
     permissions,
@@ -19,8 +21,7 @@ export default function AuthDebugPage() {
     getAccessTier,
     refreshUser,
     logout,
-    checkAuth,
-    showLogin
+    checkAuth
   } = useAuth();
 
   const [refreshing, setRefreshing] = useState(false);
@@ -38,6 +39,12 @@ export default function AuthDebugPage() {
     setRefreshing(false);
   };
 
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      router.replace('/login');
+    }
+  }, [loading, isAuthenticated, router]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -49,24 +56,7 @@ export default function AuthDebugPage() {
     );
   }
 
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-            <h2 className="text-lg font-bold">Not Authenticated</h2>
-            <p>Please log in to view authentication data</p>
-          </div>
-          <button
-            onClick={() => showLogin()}
-            className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
-          >
-            Show Login Modal
-          </button>
-        </div>
-      </div>
-    );
-  }
+  if (!isAuthenticated) return null;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">

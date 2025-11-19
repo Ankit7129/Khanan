@@ -31,7 +31,6 @@ import {
   RadioButtonUnchecked,
   Pending,
   CloudDownload,
-  ModelTraining,
   Analytics,
   Verified,
   Satellite,
@@ -122,40 +121,39 @@ const PulsingIcon = styled(Box)({
 });
 
 interface AnalysisStep {
+  id: string;
   label: string;
-  key: string;
+  keys: string[];
   icon: React.ReactNode;
   progressRange: [number, number];
 }
 
 const ANALYSIS_STEPS: AnalysisStep[] = [
   {
+    id: 'validation',
     label: 'Validating AOI',
-    key: 'validating',
+    keys: ['initialization', 'validating'],
     icon: <Verified />,
     progressRange: [0, 15]
   },
   {
+    id: 'tiles',
     label: 'Fetching Satellite Tiles',
-    key: 'preprocessing',
+    keys: ['connecting', 'requesting', 'preprocessing'],
     icon: <CloudDownload />,
-    progressRange: [15, 65]
+    progressRange: [15, 70]
   },
   {
-    label: 'Loading ML Model',
-    key: 'processing',
-    icon: <ModelTraining />,
-    progressRange: [65, 80]
-  },
-  {
+    id: 'inference',
     label: 'Running Inference',
-    key: 'ml_inference_tiles',
+    keys: ['processing', 'ml_inference_tiles'],
     icon: <Analytics />,
-    progressRange: [80, 95]
+    progressRange: [70, 95]
   },
   {
+    id: 'results',
     label: 'Generating Results',
-    key: 'completed',
+    keys: ['postprocessing', 'completed'],
     icon: <CheckCircle />,
     progressRange: [95, 100]
   }
@@ -325,11 +323,34 @@ export const AnalysisProgress: React.FC<AnalysisProgressProps> = ({
   }, [analysisId, onComplete, onError]);
 
   const getCurrentStepIndex = () => {
-    return ANALYSIS_STEPS.findIndex(step => step.key === status.current_step);
+    const currentStep = status.current_step?.toLowerCase();
+
+    if (currentStep) {
+      const directMatchIndex = ANALYSIS_STEPS.findIndex(step =>
+        step.keys.includes(currentStep)
+      );
+      if (directMatchIndex !== -1) {
+        return directMatchIndex;
+      }
+    }
+
+    const progressMatchIndex = ANALYSIS_STEPS.findIndex(step => {
+      const [min, max] = step.progressRange;
+      return status.progress >= min && status.progress < max;
+    });
+
+    if (progressMatchIndex !== -1) {
+      return progressMatchIndex;
+    }
+
+    if (status.progress >= 100) {
+      return ANALYSIS_STEPS.length - 1;
+    }
+
+    return 0;
   };
 
-  const getStepStatus = (index: number): 'completed' | 'active' | 'pending' => {
-    const currentIndex = getCurrentStepIndex();
+  const getStepStatus = (index: number, currentIndex: number): 'completed' | 'active' | 'pending' => {
     if (index < currentIndex) return 'completed';
     if (index === currentIndex) return 'active';
     return 'pending';
@@ -365,6 +386,9 @@ export const AnalysisProgress: React.FC<AnalysisProgressProps> = ({
       setAbortDialogOpen(false);
     }
   };
+
+  const currentStepIndex = getCurrentStepIndex();
+  const safeActiveStep = Math.max(currentStepIndex, 0);
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', background: 'linear-gradient(to right, #1a1a2e, #16213e, #0f3460)', overflow: 'hidden' }}>
@@ -493,7 +517,7 @@ export const AnalysisProgress: React.FC<AnalysisProgressProps> = ({
 
         {/* Stepper */}
         <Stepper 
-          activeStep={getCurrentStepIndex()} 
+          activeStep={safeActiveStep} 
           orientation="vertical"
           sx={{ 
             mb: 3,
@@ -503,9 +527,9 @@ export const AnalysisProgress: React.FC<AnalysisProgressProps> = ({
           }}
         >
           {ANALYSIS_STEPS.map((step, index) => {
-            const stepStatus = getStepStatus(index);
+            const stepStatus = getStepStatus(index, currentStepIndex);
             return (
-              <Step key={step.key} sx={{ py: 0 }}>
+              <Step key={step.id} sx={{ py: 0 }}>
                 <StepLabel
                   StepIconComponent={() => (
                     <Box
@@ -520,19 +544,27 @@ export const AnalysisProgress: React.FC<AnalysisProgressProps> = ({
                           stepStatus === 'completed'
                             ? '#fbbf24'
                             : stepStatus === 'active'
-                            ? 'rgba(251, 191, 36, 0.3)'
-                            : 'rgba(251, 191, 36, 0.1)',
+                            ? 'rgba(252, 211, 77, 0.35)'
+                            : 'rgba(148, 163, 184, 0.14)',
                         border: `2px solid ${
-                          stepStatus === 'active' ? '#fcd34d' : 'rgba(251, 191, 36, 0.3)'
+                          stepStatus === 'active' ? 'rgba(252, 211, 77, 0.9)' : 'rgba(252, 211, 77, 0.35)'
                         }`,
-                        color: stepStatus === 'completed' ? '#1a1a2e' : '#fcd34d',
+                        color: stepStatus === 'completed' ? '#0f172a' : '#fcd34d',
                         fontSize: '0.75rem'
                       }}
                     >
                       {stepStatus === 'completed' ? (
                         <CheckCircle sx={{ fontSize: '1.2rem' }} />
                       ) : stepStatus === 'active' ? (
-                        <CircularProgress size={16} sx={{ color: '#fcd34d' }} />
+                        <CircularProgress
+                          size={16}
+                          sx={{
+                            color: '#fcd34d',
+                            '& .MuiCircularProgress-circle': {
+                              strokeLinecap: 'round'
+                            }
+                          }}
+                        />
                       ) : (
                         <RadioButtonUnchecked sx={{ fontSize: '1.2rem' }} />
                       )}
@@ -540,9 +572,16 @@ export const AnalysisProgress: React.FC<AnalysisProgressProps> = ({
                   )}
                   sx={{
                     '& .MuiStepLabel-label': {
-                      color: stepStatus === 'completed' ? '#fbbf24' : '#ffffff',
+                      color: stepStatus === 'completed' ? '#fbbf24' : 'rgba(226, 232, 240, 0.9)',
                       fontWeight: stepStatus === 'active' ? 600 : 400,
                       fontSize: '0.875rem'
+                    },
+                    '& .MuiStepLabel-label.Mui-active': {
+                      color: '#fcd34d',
+                      textShadow: '0 0 8px rgba(252, 211, 77, 0.35)'
+                    },
+                    '& .MuiStepLabel-label.Mui-completed': {
+                      color: '#fbbf24'
                     }
                   }}
                 >
@@ -552,6 +591,7 @@ export const AnalysisProgress: React.FC<AnalysisProgressProps> = ({
             );
           })}
         </Stepper>
+        
 
         {/* Statistics */}
         <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 2, mb: 4 }}>
