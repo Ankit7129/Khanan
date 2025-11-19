@@ -1,199 +1,648 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   Box,
+  Button,
+  Card,
+  CardContent,
+  Checkbox,
+  Chip,
+  CircularProgress,
   Container,
-  Typography,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Divider,
+  FormControl,
+  IconButton,
+  InputAdornment,
+  InputLabel,
+  MenuItem,
   Paper,
+  Select,
+  Stack,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
-  TableRow,
   TablePagination,
-  Chip,
-  IconButton,
+  TableRow,
   TextField,
-  InputAdornment,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Card,
-  CardContent,
   Tooltip,
-  Stack,
-  Alert,
-  CircularProgress,
-  Checkbox
+  Typography
 } from '@mui/material';
 import {
-  Visibility,
-  Edit,
-  Delete,
-  Search,
-  CheckCircle,
-  Error,
-  HourglassEmpty,
   Cancel,
-  DeleteSweep
+  CheckCircle,
+  ContentCopy,
+  DeleteSweep,
+  Error as ErrorIcon,
+  HourglassEmpty,
+  OpenInNew,
+  Search
 } from '@mui/icons-material';
 import { format } from 'date-fns';
+import MineBlockTable from '@/components/geoanalyst/MineBlockTable';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 import {
+  bulkDeleteAnalyses,
+  deleteAnalysis,
+  getAnalysisById,
   getAnalysisHistory,
   getAnalysisStats,
-  getAnalysisById,
   updateAnalysis,
-  deleteAnalysis,
-  bulkDeleteAnalyses,
   type AnalysisHistoryRecord,
-  type HistoryStats,
-  type HistoryListParams
+  type HistoryListParams,
+  type HistoryStats
 } from '@/services/historyService';
-import { useAuth } from '@/contexts/AuthContext';
+import {
+  deriveTileAreaMetrics,
+  deriveConfidenceMetrics,
+  normalizeConfidenceValue,
+} from '@/lib/analysisMetrics';
 
-const AnalysisHistoryPage: React.FC = () => {
-  const router = useRouter();
-  const { isAuthenticated, loading: authLoading } = useAuth();
-  const [analyses, setAnalyses] = useState<AnalysisHistoryRecord[]>([]);
-  const [stats, setStats] = useState<HistoryStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  
-  // Pagination
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [totalCount, setTotalCount] = useState(0);
-  
-  // Filters
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<'startTime' | 'duration' | 'detectionCount'>('startTime');
-  
-  // Selection
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  
-  // Dialogs
-  const [viewDialogOpen, setViewDialogOpen] = useState(false);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [selectedAnalysis, setSelectedAnalysis] = useState<AnalysisHistoryRecord | null>(null);
-  
-  // Edit form
-  const [editNotes, setEditNotes] = useState('');
-  const [editTags, setEditTags] = useState('');
+const DEFAULT_ROWS_PER_PAGE = 10;
 
-  // Load data
-  useEffect(() => {
-    if (!isAuthenticated || authLoading) return;
-    loadData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated, authLoading, page, rowsPerPage, searchQuery, statusFilter, sortBy]);
+type StatusFilter = 'all' | 'processing' | 'completed' | 'failed' | 'cancelled';
 
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      router.replace('/login');
+type MineBlockSource = 'Merged' | 'Tile';
+
+interface DerivedSummary {
+  totalTiles: number;
+  tilesWithDetections: number;
+  detectionCount: number;
+  coveragePct?: number | null;
+  avgConfidencePct?: number | null;
+  maxConfidencePct?: number | null;
+  minConfidencePct?: number | null;
+  confidenceSource?: 'samples' | 'summary';
+  miningAreaHa?: number | null;
+  miningAreaKm2?: number | null;
+}
+
+interface MineBlockRow {
+  id: string;
+  label: string;
+  tileId?: string;
+  areaHa: number;
+  confidencePct?: number | null;
+  source: MineBlockSource;
+  isMerged?: boolean;
+  persistentId?: string;
+  blockIndex?: number;
+  centroidLat?: number;
+  centroidLon?: number;
+  bounds?: [number, number, number, number];
+}
+
+const parseNumeric = (value: unknown): number | undefined => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const parsed = Number.parseFloat(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
     }
-  }, [authLoading, isAuthenticated, router]);
+  }
+  return undefined;
+};
 
-  if (authLoading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
-        <CircularProgress />
-      </Box>
-    );
+const formatDecimal = (value: number | null | undefined, fractionDigits = 2): string => {
+  if (value === undefined || value === null || Number.isNaN(value)) {
+    return '--';
   }
 
-  if (!isAuthenticated) {
+  return Number(value).toLocaleString('en-US', {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits
+  });
+};
+
+const toPercentString = (value: number | null | undefined, fractionDigits = 1): string => {
+  const normalized = normalizeConfidenceValue(value);
+  if (normalized === null) {
+    return '--';
+  }
+
+  return `${formatDecimal(normalized, fractionDigits)}%`;
+};
+
+const formatDuration = (seconds?: number | string | null): string => {
+  if (seconds === undefined || seconds === null) {
+    return 'N/A';
+  }
+
+  const totalSeconds = typeof seconds === 'string' ? Number.parseInt(seconds, 10) : seconds;
+  if (!Number.isFinite(totalSeconds) || totalSeconds < 0) {
+    return 'N/A';
+  }
+
+  if (totalSeconds === 0) {
+    return '0s';
+  }
+
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const remainingSeconds = Math.floor(totalSeconds % 60);
+
+  const parts: string[] = [];
+  if (hours > 0) {
+    parts.push(`${hours}h`);
+  }
+  if (minutes > 0) {
+    parts.push(`${minutes}m`);
+  }
+  if (remainingSeconds > 0 || parts.length === 0) {
+    parts.push(`${remainingSeconds}s`);
+  }
+
+  return parts.join(' ');
+};
+
+const formatAverageDuration = (seconds?: number | null): string => {
+  if (seconds === undefined || seconds === null || !Number.isFinite(seconds)) {
+    return '--';
+  }
+
+  if (seconds <= 0) {
+    return '0.00 min';
+  }
+
+  const minutes = seconds / 60;
+  return `${formatDecimal(minutes, 2)} min`;
+};
+
+
+const extractSummary = (analysis: AnalysisHistoryRecord | null): DerivedSummary | null => {
+  const results = (analysis?.results ?? null) as any;
+  if (!results) {
     return null;
   }
 
-  const loadData = async () => {
-    try {
+  const summary = results.summary ?? {};
+  const statistics = results.statistics ?? results.summary_statistics ?? {};
+  const tileMetrics = deriveTileAreaMetrics(Array.isArray(results.tiles) ? results.tiles : undefined);
+
+  const detectionCount = results.detectionCount
+    ?? summary.mine_block_count
+    ?? results.merged_block_count
+    ?? results.total_mine_blocks
+    ?? summary.total_mine_blocks
+    ?? 0;
+
+  const totalTiles = summary.total_tiles
+    ?? results.totalTiles
+    ?? results.total_tiles
+    ?? statistics.totalTiles
+    ?? statistics.total_tiles
+    ?? (Array.isArray(results.tiles) ? results.tiles.length : 0);
+
+  const tilesWithDetections = summary.tiles_with_detections
+    ?? results.tilesWithMining
+    ?? statistics.tilesWithDetections
+    ?? statistics.tiles_with_detections
+    ?? (Array.isArray(results.tiles)
+      ? results.tiles.filter((tile: any) => tile?.mining_detected || tile?.miningDetected)?.length ?? 0
+      : 0);
+
+  const fallbackCoverageValue = parseNumeric(summary.mining_percentage)
+    ?? parseNumeric(statistics.coveragePercentage)
+    ?? parseNumeric(statistics.coverage_percentage);
+  const coveragePct = tileMetrics.coveragePct
+    ?? (fallbackCoverageValue !== undefined ? (fallbackCoverageValue > 1 ? fallbackCoverageValue : fallbackCoverageValue * 100) : null);
+
+  const totalMiningArea = results.totalMiningArea ?? results.total_mining_area ?? {};
+  const miningAreaM2FromSummary = parseNumeric(summary.mining_area_m2);
+  const miningAreaM2FromTotals = (() => {
+    const hectares = parseNumeric(totalMiningArea.hectares ?? totalMiningArea.hectare);
+    if (hectares !== undefined) {
+      return hectares * 10_000;
+    }
+    const meters = parseNumeric(totalMiningArea.m2 ?? totalMiningArea.squareMeters);
+    if (meters !== undefined) {
+      return meters;
+    }
+    return undefined;
+  })();
+
+  const miningAreaM2 = tileMetrics.totalMiningAreaM2 > 0
+    ? tileMetrics.totalMiningAreaM2
+    : miningAreaM2FromSummary ?? miningAreaM2FromTotals ?? null;
+
+  const miningAreaHa = typeof miningAreaM2 === 'number' ? miningAreaM2 / 10_000 : null;
+  const miningAreaKm2 = typeof miningAreaM2 === 'number' ? miningAreaM2 / 1_000_000 : null;
+
+  const confidenceMetrics = deriveConfidenceMetrics(results);
+  const avgConfidencePct = confidenceMetrics.averagePct;
+  const maxConfidencePct = confidenceMetrics.maxPct;
+  const minConfidencePct = confidenceMetrics.minPct;
+
+  return {
+    totalTiles,
+    tilesWithDetections,
+    detectionCount,
+    coveragePct,
+    avgConfidencePct,
+    maxConfidencePct,
+    minConfidencePct,
+    miningAreaHa,
+    miningAreaKm2,
+    confidenceSource: confidenceMetrics.source,
+  };
+};
+
+const buildMineBlockRows = (analysis: AnalysisHistoryRecord | null): MineBlockRow[] => {
+  const results = (analysis?.results ?? null) as any;
+  if (!results) {
+    return [];
+  }
+  const rowsMap = new Map<string, MineBlockRow>();
+
+  const registerRow = (row: MineBlockRow) => {
+    const key = row.id || `${row.source}-${row.label}`;
+    const existing = rowsMap.get(key);
+    if (existing) {
+      rowsMap.set(key, {
+        ...existing,
+        ...row,
+        areaHa: row.areaHa || existing.areaHa,
+        confidencePct: row.confidencePct ?? existing.confidencePct,
+        tileId: row.tileId ?? existing.tileId,
+        persistentId: row.persistentId ?? existing.persistentId,
+        blockIndex: row.blockIndex ?? existing.blockIndex,
+        centroidLat: row.centroidLat ?? existing.centroidLat,
+        centroidLon: row.centroidLon ?? existing.centroidLon,
+        bounds: row.bounds ?? existing.bounds,
+        source: existing.source === 'Merged' || row.source === 'Merged' ? 'Merged' : existing.source,
+        isMerged: existing.isMerged || row.isMerged
+      });
+      return;
+    }
+
+    rowsMap.set(key, row);
+  };
+
+  const blockTrackingBlocks = results.blockTracking?.blocks
+    ?? results.block_tracking?.blocks
+    ?? results.trackedBlocks
+    ?? results.tracked_blocks;
+
+  if (Array.isArray(blockTrackingBlocks)) {
+    blockTrackingBlocks.forEach((block: any, index: number) => {
+      const fallbackId = `tracked-${index}`;
+      const rowId = block.persistentId
+        ?? block.persistent_id
+        ?? block.blockId
+        ?? block.block_id
+        ?? fallbackId;
+
+      const centroidArray = Array.isArray(block.centroid)
+        ? block.centroid
+        : Array.isArray(block.label_position)
+          ? block.label_position
+          : undefined;
+
+      const boundsArray = Array.isArray(block.bounds) && block.bounds.length === 4
+        ? block.bounds.map((value: any) => Number(value)) as [number, number, number, number]
+        : undefined;
+
+      const areaHa = (() => {
+        if (typeof block.areaHa === 'number') {
+          return block.areaHa;
+        }
+        const areaM2 = parseNumeric(block.areaM2 ?? block.area_m2);
+        if (areaM2 !== undefined) {
+          return areaM2 / 10000;
+        }
+        return 0;
+      })();
+
+      registerRow({
+        id: String(rowId),
+        label: block.name || block.label || block.blockId || block.block_id || `Block ${index + 1}`,
+        tileId: block.tileId || block.tile_id || undefined,
+        areaHa,
+        confidencePct: normalizeConfidenceValue(block.avgConfidence ?? block.avg_confidence ?? block.confidence),
+        source: 'Tile',
+        persistentId: block.persistentId || block.persistent_id || undefined,
+        blockIndex: typeof block.sequence === 'number' ? block.sequence : block.block_index,
+        centroidLat: parseNumeric(centroidArray?.[1]),
+        centroidLon: parseNumeric(centroidArray?.[0]),
+        bounds: boundsArray,
+        isMerged: Boolean(block.isMerged ?? block.is_merged)
+      });
+    });
+  }
+
+  const mergedCollection = results.mergedBlocks
+    ?? results.merged_blocks
+    ?? results.merged_block_collection
+    ?? results.mergedBlockGeoJson;
+
+  const mergedFeatures = Array.isArray(mergedCollection?.features)
+    ? mergedCollection.features
+    : Array.isArray(mergedCollection)
+      ? mergedCollection
+      : [];
+
+  mergedFeatures.forEach((feature: any, index: number) => {
+    const props = feature?.properties ?? feature ?? {};
+    const rowId = props.persistent_id
+      ?? props.persistentId
+      ?? props.block_id
+      ?? props.id
+      ?? `merged-${index}`;
+
+    const boundsArray = Array.isArray(props.bbox) && props.bbox.length === 4
+      ? props.bbox.map((value: any) => Number(value)) as [number, number, number, number]
+      : undefined;
+
+    const centroidArray = Array.isArray(props.label_position)
+      ? props.label_position
+      : Array.isArray(props.centroid)
+        ? props.centroid
+        : undefined;
+
+    const areaHa = (() => {
+      const directHa = parseNumeric(props.area_ha ?? props.areaHa);
+      if (directHa !== undefined) {
+        return directHa;
+      }
+      const areaM2 = parseNumeric(props.area_m2 ?? props.areaM2);
+      if (areaM2 !== undefined) {
+        return areaM2 / 10000;
+      }
+      return 0;
+    })();
+
+    registerRow({
+      id: `merged-${rowId}`,
+      label: props.name || props.block_id || `Merged Block ${index + 1}`,
+      tileId: props.tile_id ? String(props.tile_id) : undefined,
+      areaHa,
+      confidencePct: normalizeConfidenceValue(props.avg_confidence ?? props.confidence ?? props.mean_confidence),
+      source: 'Merged',
+      isMerged: Boolean(props.is_merged ?? true),
+      persistentId: props.persistent_id || props.persistentId || undefined,
+      blockIndex: props.block_index ?? props.index,
+      centroidLat: parseNumeric(centroidArray?.[1] ?? props.centroid_lat),
+      centroidLon: parseNumeric(centroidArray?.[0] ?? props.centroid_lon),
+      bounds: boundsArray
+    });
+  });
+
+  if (Array.isArray(results.tiles)) {
+    results.tiles.forEach((tile: any, tileIdx: number) => {
+      const tileBlocks = Array.isArray(tile.mine_blocks)
+        ? tile.mine_blocks
+        : Array.isArray(tile.blocks)
+          ? tile.blocks
+          : [];
+
+      if (!tileBlocks.length) {
+        return;
+      }
+
+      const tileLabel = tile.tile_label
+        ?? tile.tileLabel
+        ?? tile.tile_id
+        ?? tile.tileId
+        ?? (typeof tile.tile_index === 'number' ? `tile_${tile.tile_index}` : `Tile ${tileIdx + 1}`);
+
+      const displayTileId = tile.tile_id ?? tile.tileId ?? tileLabel;
+
+      tileBlocks.forEach((block: any, blockIdx: number) => {
+        const props = block?.properties ?? block ?? {};
+        const rowId = props.persistent_id
+          ?? props.persistentId
+          ?? props.block_id
+          ?? props.blockId
+          ?? `${displayTileId}-block-${blockIdx + 1}`;
+
+        const centroidArray = Array.isArray(props.label_position)
+          ? props.label_position
+          : Array.isArray(props.centroid)
+            ? props.centroid
+            : undefined;
+
+        const boundsArray = Array.isArray(props.bbox) && props.bbox.length === 4
+          ? props.bbox.map((value: any) => Number(value)) as [number, number, number, number]
+          : undefined;
+
+        const areaHa = (() => {
+          const directHa = parseNumeric(props.area_ha ?? props.areaHa);
+          if (directHa !== undefined) {
+            return directHa;
+          }
+          const areaM2 = parseNumeric(props.area_m2 ?? props.areaM2);
+          if (areaM2 !== undefined) {
+            return areaM2 / 10000;
+          }
+          return 0;
+        })();
+
+        registerRow({
+          id: `tile-${rowId}`,
+          label: props.name || `${tileLabel} · Block ${blockIdx + 1}`,
+          tileId: String(displayTileId),
+          areaHa,
+          confidencePct: normalizeConfidenceValue(props.avg_confidence ?? props.confidence ?? props.mean_confidence),
+          source: 'Tile',
+          isMerged: Boolean(props.is_merged),
+          persistentId: props.persistent_id || props.persistentId || undefined,
+          blockIndex: props.block_index ?? props.index,
+          centroidLat: parseNumeric(centroidArray?.[1]),
+          centroidLon: parseNumeric(centroidArray?.[0]),
+          bounds: boundsArray
+        });
+      });
+    });
+  }
+
+  const rows = Array.from(rowsMap.values());
+  rows.sort((a, b) => (b.areaHa ?? 0) - (a.areaHa ?? 0));
+  return rows;
+};
+
+const AnalysisHistoryPage: React.FC = () => {
+  const [analyses, setAnalyses] = useState<AnalysisHistoryRecord[]>([]);
+  const [stats, setStats] = useState<HistoryStats | null>(null);
+  const [totalCount, setTotalCount] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(DEFAULT_ROWS_PER_PAGE);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [sortBy, setSortBy] = useState<HistoryListParams['sortBy']>('startTime');
+  const [sortOrder] = useState<HistoryListParams['sortOrder']>('desc');
+
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+
+  const [selectedAnalysis, setSelectedAnalysis] = useState<AnalysisHistoryRecord | null>(null);
+  const [editNotes, setEditNotes] = useState('');
+  const [editTags, setEditTags] = useState('');
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const { isAuthenticated, loading: authLoading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (authLoading || !isAuthenticated) {
+      return;
+    }
+
+    let ignore = false;
+
+    const fetchStats = async () => {
+      try {
+        const response = await getAnalysisStats();
+        if (!ignore) {
+          setStats(response);
+        }
+      } catch (err) {
+        if (!ignore) {
+          console.error('Failed to load analysis stats', err);
+        }
+      }
+    };
+
+    fetchStats();
+
+    return () => {
+      ignore = true;
+    };
+  }, [authLoading, isAuthenticated]);
+
+  useEffect(() => {
+    if (authLoading || !isAuthenticated) {
+      setLoading(false);
+      return;
+    }
+
+    let ignore = false;
+
+    const fetchHistory = async () => {
       setLoading(true);
       setError(null);
 
-      const params: HistoryListParams = {
-        page: page + 1,
-        limit: rowsPerPage,
-        sortBy,
-        sortOrder: 'desc'
-      };
+      try {
+        const params: HistoryListParams = {
+          page: page + 1,
+          limit: rowsPerPage,
+          sortBy,
+          sortOrder
+        };
 
-      if (statusFilter !== 'all') {
-        params.status = statusFilter as any;
-      }
-
-      if (searchQuery) {
-        params.search = searchQuery;
-      }
-
-      // Add retry logic with exponential backoff for transient errors
-      let retries = 0;
-      const maxRetries = 3;
-      
-      const executeWithRetry = async () => {
-        try {
-          const [historyData, statsData] = await Promise.all([
-            getAnalysisHistory(params),
-            getAnalysisStats()
-          ]);
-
-          setAnalyses(historyData.analyses);
-          setTotalCount(historyData.total);
-          setStats(statsData);
-        } catch (err: any) {
-          // If it's a 429 (rate limited) or 503 (service unavailable), retry
-          if ((err.response?.status === 429 || err.response?.status === 503) && retries < maxRetries) {
-            retries++;
-            const delay = Math.pow(2, retries) * 1000; // Exponential backoff
-            console.log(`⏱️ Rate limited or service unavailable, retrying in ${delay}ms (attempt ${retries}/${maxRetries})`);
-            await new Promise(resolve => setTimeout(resolve, delay));
-            return executeWithRetry();
-          }
-          
-          // If it's a 401 (unauthorized), the apiClient will handle token refresh
-          if (err.response?.status === 401) {
-            setError('Your session has expired. Please refresh the page.');
-            return;
-          }
-          
-          throw err;
+        if (statusFilter !== 'all') {
+          params.status = statusFilter;
         }
-      };
+        if (searchQuery.trim().length > 0) {
+          params.search = searchQuery.trim();
+        }
 
-      await executeWithRetry();
-    } catch (err: any) {
-      const errorMsg = err.response?.data?.message || err.message || 'Failed to load analysis history';
-      setError(errorMsg);
-      console.error('Error loading history:', err);
-    } finally {
-      setLoading(false);
+        const rawResponse: any = await getAnalysisHistory(params);
+        const analysesList: AnalysisHistoryRecord[] = Array.isArray(rawResponse.analyses)
+          ? rawResponse.analyses
+          : Array.isArray(rawResponse.items)
+            ? rawResponse.items
+            : [];
+        const total = rawResponse.pagination?.total
+          ?? rawResponse.total
+          ?? analysesList.length;
+
+        if (ignore) {
+          return;
+        }
+
+        if (!analysesList.length && total > 0 && page > 0) {
+          setPage(0);
+          return;
+        }
+
+        setAnalyses(analysesList);
+        setTotalCount(total);
+        setSelectedIds((prev) => {
+          const next = new Set<string>();
+          prev.forEach((id) => {
+            if (analysesList.some((analysis) => analysis.analysisId === id)) {
+              next.add(id);
+            }
+          });
+          return next;
+        });
+      } catch (err) {
+        if (ignore) {
+          return;
+        }
+
+        const message = err instanceof Error ? err.message : 'Failed to load analysis history';
+        setError(message);
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchHistory();
+
+    return () => {
+      ignore = true;
+    };
+  }, [page, rowsPerPage, searchQuery, statusFilter, sortBy, sortOrder, authLoading, isAuthenticated]);
+
+  const selectedSummary = useMemo(() => extractSummary(selectedAnalysis), [selectedAnalysis]);
+  const mineBlockRows = useMemo(() => buildMineBlockRows(selectedAnalysis), [selectedAnalysis]);
+  const selectedResults: any = selectedAnalysis?.results ?? null;
+  const blockTrackingSummary = selectedResults?.blockTracking?.summary
+    ?? selectedResults?.block_tracking?.summary
+    ?? null;
+
+  const handleCopyAnalysisId = async (analysisId: string) => {
+    try {
+      if (!navigator?.clipboard) {
+        throw new Error('Clipboard API not available');
+      }
+      await navigator.clipboard.writeText(analysisId);
+      setCopiedId(analysisId);
+      window.setTimeout(() => {
+        setCopiedId((current) => (current === analysisId ? null : current));
+      }, 1500);
+    } catch (err) {
+      console.error('Failed to copy analysis ID', err);
     }
+  };
+
+  const handleOpenResults = (analysisId: string) => {
+    setViewDialogOpen(false);
+    router.push(`/geoanalyst-dashboard/results?id=${analysisId}`);
   };
 
   const handleViewDetails = async (analysisId: string) => {
     try {
       let retries = 0;
       const maxRetries = 3;
-      
-      const fetchWithRetry = async (): Promise<any> => {
+
+      const fetchWithRetry = async (): Promise<AnalysisHistoryRecord> => {
         try {
           return await getAnalysisById(analysisId, false);
         } catch (err: any) {
-          if ((err.response?.status === 429 || err.response?.status === 503) && retries < maxRetries) {
-            retries++;
-            const delay = Math.pow(2, retries) * 1000;
-            console.log(`⏱️ Rate limited, retrying in ${delay}ms (attempt ${retries}/${maxRetries})`);
-            await new Promise(resolve => setTimeout(resolve, delay));
+          const status = err?.response?.status;
+          if ((status === 429 || status === 503) && retries < maxRetries) {
+            retries += 1;
+            const delayMs = Math.pow(2, retries) * 1000;
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
             return fetchWithRetry();
           }
           throw err;
@@ -203,9 +652,9 @@ const AnalysisHistoryPage: React.FC = () => {
       const details = await fetchWithRetry();
       setSelectedAnalysis(details);
       setViewDialogOpen(true);
-    } catch (err: any) {
-      const errorMsg = err.response?.data?.message || err.message || 'Failed to load analysis details';
-      setError(errorMsg);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load analysis details';
+      setError(message);
     }
   };
 
@@ -217,13 +666,15 @@ const AnalysisHistoryPage: React.FC = () => {
   };
 
   const handleSaveEdit = async () => {
-    if (!selectedAnalysis) return;
+    if (!selectedAnalysis) {
+      return;
+    }
 
     try {
       const tags = editTags
         .split(',')
-        .map(t => t.trim())
-        .filter(t => t.length > 0);
+        .map((tag) => tag.trim())
+        .filter((tag) => tag.length > 0);
 
       await updateAnalysis(selectedAnalysis.analysisId, {
         userNotes: editNotes,
@@ -231,9 +682,13 @@ const AnalysisHistoryPage: React.FC = () => {
       });
 
       setEditDialogOpen(false);
-      loadData();
-    } catch (err: any) {
-      setError(err.message || 'Failed to update analysis');
+      setSelectedAnalysis(null);
+      setEditNotes('');
+      setEditTags('');
+      setPage(0);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to update analysis';
+      setError(message);
     }
   };
 
@@ -243,46 +698,65 @@ const AnalysisHistoryPage: React.FC = () => {
   };
 
   const handleConfirmDelete = async () => {
-    if (!selectedAnalysis) return;
+    if (!selectedAnalysis) {
+      return;
+    }
 
     try {
-      await deleteAnalysis(selectedAnalysis.analysisId);
+      const targetId = selectedAnalysis.analysisId;
+      const { notFound } = await deleteAnalysis(targetId);
       setDeleteDialogOpen(false);
       setSelectedAnalysis(null);
-      loadData();
-    } catch (err: any) {
-      setError(err.message || 'Failed to delete analysis');
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(targetId);
+        return next;
+      });
+      setAnalyses((prev) => prev.filter((analysis) => analysis.analysisId !== targetId));
+      setTotalCount((prev) => Math.max(0, prev - 1));
+
+      if (analyses.length <= 1 && page > 0) {
+        setPage((current) => Math.max(0, current - 1));
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to delete analysis';
+      setError(message);
     }
   };
 
   const handleBulkDelete = async () => {
-    if (selectedIds.size === 0) return;
+    if (selectedIds.size === 0) {
+      return;
+    }
 
     try {
       await bulkDeleteAnalyses(Array.from(selectedIds));
       setSelectedIds(new Set());
-      loadData();
-    } catch (err: any) {
-      setError(err.message || 'Failed to delete analyses');
+      setPage(0);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to delete analyses';
+      setError(message);
     }
   };
 
   const handleSelectAll = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.checked) {
-      setSelectedIds(new Set(analyses.map(a => a.analysisId)));
+      setSelectedIds(new Set(analyses.map((analysis) => analysis.analysisId)));
     } else {
       setSelectedIds(new Set());
     }
   };
 
   const handleSelectOne = (analysisId: string) => {
-    const newSelected = new Set(selectedIds);
-    if (newSelected.has(analysisId)) {
-      newSelected.delete(analysisId);
-    } else {
-      newSelected.add(analysisId);
-    }
-    setSelectedIds(newSelected);
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(analysisId)) {
+        next.delete(analysisId);
+      } else {
+        next.add(analysisId);
+      }
+      return next;
+    });
   };
 
   const getStatusIcon = (status: string) => {
@@ -290,7 +764,7 @@ const AnalysisHistoryPage: React.FC = () => {
       case 'completed':
         return <CheckCircle sx={{ color: 'success.main', fontSize: 16 }} />;
       case 'failed':
-        return <Error sx={{ color: 'error.main', fontSize: 16 }} />;
+        return <ErrorIcon sx={{ color: 'error.main', fontSize: 16 }} />;
       case 'processing':
         return <HourglassEmpty sx={{ color: 'warning.main', fontSize: 16 }} />;
       case 'cancelled':
@@ -300,7 +774,7 @@ const AnalysisHistoryPage: React.FC = () => {
     }
   };
 
-  const getStatusColor = (status: string): "success" | "error" | "warning" | "default" => {
+  const getStatusColor = (status: string): 'success' | 'error' | 'warning' | 'default' => {
     switch (status) {
       case 'completed':
         return 'success';
@@ -313,57 +787,22 @@ const AnalysisHistoryPage: React.FC = () => {
     }
   };
 
-  const formatDuration = (seconds?: number | string) => {
-    if (!seconds) return 'N/A';
-    
-    // Convert to number if string
-    const totalSeconds = typeof seconds === 'string' ? parseInt(seconds, 10) : seconds;
-    
-    if (isNaN(totalSeconds) || totalSeconds < 0) {
-      return 'N/A';
-    }
-    
-    if (totalSeconds === 0) {
-      return '0s';
-    }
-    
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const secs = totalSeconds % 60;
-    
-    const parts: string[] = [];
-    
-    if (hours > 0) {
-      parts.push(`${hours}h`);
-    }
-    if (minutes > 0) {
-      parts.push(`${minutes}m`);
-    }
-    if (secs > 0 || parts.length === 0) {
-      parts.push(`${secs}s`);
-    }
-    
-    return parts.join(' ');
-  };
-
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
-      {/* Header */}
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" fontWeight="bold" gutterBottom>
           Analysis History
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          View and manage your past geospatial analyses
+          Review completed analyses, copy identifiers, and revisit detailed results.
         </Typography>
       </Box>
 
-      {/* Statistics Cards */}
       {stats && (
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 2, mb: 3 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 2, mb: 3 }}>
           <Card>
             <CardContent>
-              <Typography color="text.secondary" gutterBottom variant="body2">
+              <Typography variant="body2" color="text.secondary" gutterBottom>
                 Total Analyses
               </Typography>
               <Typography variant="h4" fontWeight="bold">
@@ -373,7 +812,7 @@ const AnalysisHistoryPage: React.FC = () => {
           </Card>
           <Card>
             <CardContent>
-              <Typography color="text.secondary" gutterBottom variant="body2">
+              <Typography variant="body2" color="text.secondary" gutterBottom>
                 Completed
               </Typography>
               <Typography variant="h4" fontWeight="bold" color="success.main">
@@ -383,7 +822,7 @@ const AnalysisHistoryPage: React.FC = () => {
           </Card>
           <Card>
             <CardContent>
-              <Typography color="text.secondary" gutterBottom variant="body2">
+              <Typography variant="body2" color="text.secondary" gutterBottom>
                 Total Detections
               </Typography>
               <Typography variant="h4" fontWeight="bold" color="primary.main">
@@ -393,37 +832,41 @@ const AnalysisHistoryPage: React.FC = () => {
           </Card>
           <Card>
             <CardContent>
-              <Typography color="text.secondary" gutterBottom variant="body2">
+              <Typography variant="body2" color="text.secondary" gutterBottom>
                 Avg. Duration
               </Typography>
               <Typography variant="h4" fontWeight="bold">
-                {formatDuration(stats.averageDuration)}
+                {formatAverageDuration(stats.averageDuration)}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                mean runtime (minutes)
               </Typography>
             </CardContent>
           </Card>
         </Box>
       )}
 
-      {/* Error Alert */}
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
           {error}
         </Alert>
       )}
 
-      {/* Filters and Search */}
       <Paper sx={{ p: 2, mb: 2 }}>
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(4, 1fr)' }, gap: 2 }}>
           <TextField
             fullWidth
             size="small"
-            placeholder="Search by ID or notes..."
+            placeholder="Search by analysis ID, notes, or tags"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(event) => {
+              setSearchQuery(event.target.value);
+              setPage(0);
+            }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <Search />
+                  <Search fontSize="small" />
                 </InputAdornment>
               )
             }}
@@ -431,9 +874,12 @@ const AnalysisHistoryPage: React.FC = () => {
           <FormControl fullWidth size="small">
             <InputLabel>Status</InputLabel>
             <Select
-              value={statusFilter}
               label="Status"
-              onChange={(e) => setStatusFilter(e.target.value)}
+              value={statusFilter}
+              onChange={(event) => {
+                setStatusFilter(event.target.value as StatusFilter);
+                setPage(0);
+              }}
             >
               <MenuItem value="all">All</MenuItem>
               <MenuItem value="completed">Completed</MenuItem>
@@ -445,9 +891,12 @@ const AnalysisHistoryPage: React.FC = () => {
           <FormControl fullWidth size="small">
             <InputLabel>Sort By</InputLabel>
             <Select
-              value={sortBy}
               label="Sort By"
-              onChange={(e) => setSortBy(e.target.value as any)}
+              value={sortBy}
+              onChange={(event) => {
+                setSortBy(event.target.value as HistoryListParams['sortBy']);
+                setPage(0);
+              }}
             >
               <MenuItem value="startTime">Date</MenuItem>
               <MenuItem value="duration">Duration</MenuItem>
@@ -457,20 +906,19 @@ const AnalysisHistoryPage: React.FC = () => {
           <Box>
             {selectedIds.size > 0 && (
               <Button
-                variant="outlined"
-                color="error"
                 fullWidth
-                startIcon={<DeleteSweep />}
+                color="error"
+                variant="outlined"
+                startIcon={<DeleteSweep fontSize="small" />}
                 onClick={handleBulkDelete}
               >
-                Delete ({selectedIds.size})
+                Delete {selectedIds.size}
               </Button>
             )}
           </Box>
         </Box>
       </Paper>
 
-      {/* Table */}
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
@@ -483,10 +931,11 @@ const AnalysisHistoryPage: React.FC = () => {
                 />
               </TableCell>
               <TableCell>Status</TableCell>
-              <TableCell>Analysis ID</TableCell>
-              <TableCell>Start Time</TableCell>
-              <TableCell>Duration</TableCell>
-              <TableCell>Detections</TableCell>
+              <TableCell>Analysis</TableCell>
+              <TableCell>Timeline</TableCell>
+              <TableCell align="right">Blocks</TableCell>
+              <TableCell align="right">Coverage</TableCell>
+              <TableCell align="right">Mining Area</TableCell>
               <TableCell>Tags</TableCell>
               <TableCell align="right">Actions</TableCell>
             </TableRow>
@@ -494,88 +943,191 @@ const AnalysisHistoryPage: React.FC = () => {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
-                  <CircularProgress />
+                <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
+                  <CircularProgress size={28} />
                 </TableCell>
               </TableRow>
             ) : analyses.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
-                  <Typography color="text.secondary">
-                    No analyses found
-                  </Typography>
+                <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
+                  <Typography color="text.secondary">No analyses found</Typography>
                 </TableCell>
               </TableRow>
             ) : (
-              analyses.map((analysis) => (
-                <TableRow key={analysis.analysisId} hover>
-                  <TableCell padding="checkbox">
-                    <Checkbox
-                      checked={selectedIds.has(analysis.analysisId)}
-                      onChange={() => handleSelectOne(analysis.analysisId)}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      icon={getStatusIcon(analysis.status) || undefined}
-                      label={analysis.status}
-                      color={getStatusColor(analysis.status)}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2" fontFamily="monospace">
-                      {analysis.analysisId.substring(0, 8)}...
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2">
-                      {format(new Date(analysis.startTime), 'MMM dd, yyyy')}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {format(new Date(analysis.startTime), 'HH:mm:ss')}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>{formatDuration(analysis.duration)}</TableCell>
-                  <TableCell>
-                    {analysis.results?.detectionCount || 0}
-                  </TableCell>
-                  <TableCell>
-                    <Stack direction="row" spacing={0.5} flexWrap="wrap">
-                      {analysis.tags?.slice(0, 2).map((tag) => (
-                        <Chip key={tag} label={tag} size="small" variant="outlined" />
-                      ))}
-                      {analysis.tags && analysis.tags.length > 2 && (
-                        <Chip label={`+${analysis.tags.length - 2}`} size="small" />
-                      )}
-                    </Stack>
-                  </TableCell>
-                  <TableCell align="right">
-                    <Tooltip title="View Details">
-                      <IconButton
+              analyses.map((analysis) => {
+                const analysisResults: any = analysis.results ?? {};
+                const summary = analysisResults.summary ?? {};
+                const statistics = analysisResults.statistics ?? {};
+                const tileMetrics = deriveTileAreaMetrics(Array.isArray(analysisResults.tiles) ? analysisResults.tiles : undefined);
+
+                const detectionCount = analysisResults.detectionCount
+                  ?? summary.mine_block_count
+                  ?? analysisResults.merged_block_count
+                  ?? 0;
+
+                const fallbackCoverageValue = parseNumeric(summary.mining_percentage)
+                  ?? parseNumeric(statistics.coveragePercentage)
+                  ?? parseNumeric(statistics.coverage_percentage);
+                const coveragePct = tileMetrics.coveragePct
+                  ?? (fallbackCoverageValue !== undefined ? (fallbackCoverageValue > 1 ? fallbackCoverageValue : fallbackCoverageValue * 100) : null);
+
+                const miningAreaHaFromSummary = (() => {
+                  const area = parseNumeric(summary.mining_area_m2);
+                  return area !== undefined ? area / 10_000 : null;
+                })();
+                const miningAreaHaFromTotals = (() => {
+                  const totalMiningArea = analysisResults.totalMiningArea ?? analysisResults.total_mining_area ?? {};
+                  const hectares = parseNumeric(totalMiningArea.hectares ?? totalMiningArea.hectare);
+                  if (hectares !== undefined) {
+                    return hectares;
+                  }
+                  const meters = parseNumeric(totalMiningArea.m2 ?? totalMiningArea.squareMeters);
+                  if (meters !== undefined) {
+                    return meters / 10_000;
+                  }
+                  return null;
+                })();
+                const totalMiningAreaHa = tileMetrics.totalMiningAreaM2 > 0
+                  ? tileMetrics.totalMiningAreaM2 / 10_000
+                  : miningAreaHaFromSummary ?? miningAreaHaFromTotals ?? null;
+
+                const tilesWithDetections = summary.tiles_with_detections
+                  ?? analysisResults.tilesWithMining
+                  ?? statistics.tilesWithDetections
+                  ?? statistics.tiles_with_detections
+                  ?? 0;
+                const totalTiles = summary.total_tiles
+                  ?? analysisResults.totalTiles
+                  ?? analysisResults.total_tiles
+                  ?? analysisResults.tiles?.length
+                  ?? 0;
+                const confidenceMetrics = deriveConfidenceMetrics(analysisResults);
+                const avgConfidence = confidenceMetrics.averagePct;
+                const maxConfidence = confidenceMetrics.maxPct;
+                const startTime = analysis.startTime ? new Date(analysis.startTime) : null;
+                const endTime = analysis.endTime ? new Date(analysis.endTime) : null;
+
+                return (
+                  <TableRow key={analysis.analysisId} hover>
+                    <TableCell padding="checkbox">
+                      <Checkbox
+                        checked={selectedIds.has(analysis.analysisId)}
+                        onChange={() => handleSelectOne(analysis.analysisId)}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        icon={getStatusIcon(analysis.status) || undefined}
+                        label={analysis.status}
+                        color={getStatusColor(analysis.status)}
                         size="small"
-                        onClick={() => handleViewDetails(analysis.analysisId)}
-                      >
-                        <Visibility />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Edit">
-                      <IconButton size="small" onClick={() => handleEdit(analysis)}>
-                        <Edit />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Delete">
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={() => handleDelete(analysis)}
-                      >
-                        <Delete />
-                      </IconButton>
-                    </Tooltip>
-                  </TableCell>
-                </TableRow>
-              ))
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Stack spacing={0.75}>
+                        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                          <Typography variant="body2" fontFamily="monospace">
+                            {analysis.analysisId}
+                          </Typography>
+                          <Tooltip title={copiedId === analysis.analysisId ? 'Copied' : 'Copy ID'}>
+                            <IconButton size="small" onClick={() => handleCopyAnalysisId(analysis.analysisId)}>
+                              <ContentCopy fontSize="inherit" />
+                            </IconButton>
+                          </Tooltip>
+                        </Stack>
+                        <Stack direction="row" spacing={1} flexWrap="wrap">
+                          {totalTiles > 0 && (
+                            <Chip
+                              size="small"
+                              variant="outlined"
+                              label={`${tilesWithDetections}/${totalTiles} tiles with detections`}
+                            />
+                          )}
+                          {avgConfidence !== undefined && avgConfidence !== null && (
+                            <Chip size="small" label={`Avg conf ${formatDecimal(avgConfidence, 1)}%`} />
+                          )}
+                          {maxConfidence !== undefined && maxConfidence !== null && maxConfidence !== avgConfidence && (
+                            <Chip size="small" label={`Max conf ${formatDecimal(maxConfidence, 1)}%`} />
+                          )}
+                          {analysis.aoiArea?.hectares !== undefined && (
+                            <Chip size="small" label={`AOI ${formatDecimal(analysis.aoiArea.hectares, 1)} ha`} />
+                          )}
+                        </Stack>
+                      </Stack>
+                    </TableCell>
+                    <TableCell>
+                      <Stack spacing={0.5}>
+                        {startTime && (
+                          <Typography variant="body2">
+                            {format(startTime, 'MMM dd, yyyy HH:mm')}
+                          </Typography>
+                        )}
+                        {endTime && (
+                          <Typography variant="caption" color="text.secondary">
+                            Completed {format(endTime, 'MMM dd, yyyy HH:mm')}
+                          </Typography>
+                        )}
+                        <Typography variant="caption" color="text.secondary">
+                          {formatDuration(analysis.duration)}
+                        </Typography>
+                      </Stack>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography variant="body2" fontWeight="bold">
+                        {detectionCount}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography variant="body2">
+                        {toPercentString(coveragePct)}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography variant="body2">
+                        {totalMiningAreaHa !== null && totalMiningAreaHa !== undefined
+                          ? `${formatDecimal(totalMiningAreaHa, 2)} ha`
+                          : '--'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Stack direction="row" spacing={0.5} flexWrap="wrap">
+                        {analysis.tags?.slice(0, 2).map((tag) => (
+                          <Chip key={tag} label={tag} size="small" variant="outlined" />
+                        ))}
+                        {analysis.tags && analysis.tags.length > 2 && (
+                          <Chip label={`+${analysis.tags.length - 2}`} size="small" />
+                        )}
+                      </Stack>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Stack direction="row" spacing={1} justifyContent="flex-end" flexWrap="wrap">
+                        <Button size="small" variant="outlined" onClick={() => handleViewDetails(analysis.analysisId)}>
+                          Details
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          endIcon={<OpenInNew fontSize="small" />}
+                          onClick={() => handleOpenResults(analysis.analysisId)}
+                        >
+                          Results
+                        </Button>
+                        <Button size="small" variant="outlined" onClick={() => handleEdit(analysis)}>
+                          Notes
+                        </Button>
+                        <Button
+                          size="small"
+                          color="error"
+                          variant="contained"
+                          onClick={() => handleDelete(analysis)}
+                        >
+                          Delete
+                        </Button>
+                      </Stack>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
@@ -585,415 +1137,217 @@ const AnalysisHistoryPage: React.FC = () => {
           page={page}
           onPageChange={(_, newPage) => setPage(newPage)}
           rowsPerPage={rowsPerPage}
-          onRowsPerPageChange={(e) => {
-            setRowsPerPage(parseInt(e.target.value, 10));
+          onRowsPerPageChange={(event) => {
+            setRowsPerPage(Number(event.target.value));
             setPage(0);
           }}
           rowsPerPageOptions={[5, 10, 25, 50]}
         />
       </TableContainer>
 
-      {/* View Details Dialog */}
-      <Dialog
-        open={viewDialogOpen}
-        onClose={() => setViewDialogOpen(false)}
-        maxWidth="lg"
-        fullWidth
-      >
+      <Dialog open={viewDialogOpen} onClose={() => setViewDialogOpen(false)} maxWidth="lg" fullWidth>
         <DialogTitle>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
             <Typography variant="h6">Analysis Details</Typography>
-            <Button 
-              variant="outlined" 
-              size="small"
-              onClick={() => {
-                if (selectedAnalysis?.analysisId) {
-                  window.open(`/geoanalyst-dashboard/results?id=${selectedAnalysis.analysisId}`, '_blank');
-                }
-              }}
-            >
-              View Full Results
-            </Button>
+            {selectedAnalysis?.analysisId && (
+              <Button
+                variant="outlined"
+                size="small"
+                endIcon={<OpenInNew fontSize="small" />}
+                onClick={() => handleOpenResults(selectedAnalysis.analysisId)}
+              >
+                Open Results Page
+              </Button>
+            )}
           </Box>
         </DialogTitle>
-        <DialogContent>
+        <DialogContent dividers>
           {selectedAnalysis && (
-            <Box sx={{ pt: 2 }}>
-              <Stack spacing={3}>
-                {/* Basic Info */}
-                <Paper sx={{ p: 2, bgcolor: 'background.default' }}>
-                  <Stack spacing={2}>
-                    <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 2 }}>
-                      <Box>
-                        <Typography variant="caption" color="text.secondary">
-                          Analysis ID
-                        </Typography>
+            <Stack spacing={3} sx={{ pt: 1 }}>
+              <Paper sx={{ p: 2 }}>
+                <Stack spacing={2}>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' }, gap: 2 }}>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Analysis ID
+                      </Typography>
+                      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
                         <Typography variant="body2" fontFamily="monospace">
                           {selectedAnalysis.analysisId}
                         </Typography>
-                      </Box>
-                      <Box>
-                        <Typography variant="caption" color="text.secondary">
-                          Status
-                        </Typography>
-                        <Box sx={{ mt: 0.5 }}>
-                          <Chip
-                            icon={getStatusIcon(selectedAnalysis.status) || undefined}
-                            label={selectedAnalysis.status}
-                            color={getStatusColor(selectedAnalysis.status)}
-                            size="small"
-                          />
-                        </Box>
-                      </Box>
-                      <Box>
-                        <Typography variant="caption" color="text.secondary">
-                          Start Time
-                        </Typography>
-                        <Typography variant="body2">
-                          {selectedAnalysis.startTime ? format(new Date(selectedAnalysis.startTime), 'PPpp') : 'N/A'}
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Typography variant="caption" color="text.secondary">
-                          Duration
-                        </Typography>
-                        <Typography variant="body2">
-                          {formatDuration(selectedAnalysis.duration)}
-                        </Typography>
+                        <Tooltip title={copiedId === selectedAnalysis.analysisId ? 'Copied' : 'Copy ID'}>
+                          <IconButton size="small" onClick={() => handleCopyAnalysisId(selectedAnalysis.analysisId)}>
+                            <ContentCopy fontSize="inherit" />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Status
+                      </Typography>
+                      <Box sx={{ mt: 0.5 }}>
+                        <Chip
+                          icon={getStatusIcon(selectedAnalysis.status) || undefined}
+                          label={selectedAnalysis.status}
+                          color={getStatusColor(selectedAnalysis.status)}
+                          size="small"
+                        />
                       </Box>
                     </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Start Time
+                      </Typography>
+                      <Typography variant="body2">
+                        {selectedAnalysis.startTime ? format(new Date(selectedAnalysis.startTime), 'PPpp') : 'N/A'}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Duration
+                      </Typography>
+                      <Typography variant="body2">
+                        {formatDuration(selectedAnalysis.duration)}
+                      </Typography>
+                    </Box>
+                  </Box>
+                  <Divider flexItem />
+                  <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} justifyContent="space-between">
+                    {selectedAnalysis.aoiArea?.hectares !== undefined && (
+                      <Typography variant="body2">
+                        AOI surface: <strong>{formatDecimal(selectedAnalysis.aoiArea.hectares, 2)} ha</strong>
+                      </Typography>
+                    )}
+                    {selectedAnalysis.viewUrl && (
+                      <Typography variant="body2" color="text.secondary">
+                        Portal link: {selectedAnalysis.viewUrl}
+                      </Typography>
+                    )}
+                  </Stack>
+                </Stack>
+              </Paper>
+
+              {selectedSummary && (
+                <Paper sx={{ p: 2 }}>
+                  <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 'bold' }}>
+                    Key Metrics
+                  </Typography>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 2 }}>
+                    <Card variant="outlined">
+                      <CardContent>
+                        <Typography variant="caption" color="text.secondary">
+                          Tiles Processed
+                        </Typography>
+                        <Typography variant="h5">
+                          {selectedSummary.totalTiles}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {selectedSummary.tilesWithDetections} with detections
+                        </Typography>
+                      </CardContent>
+                    </Card>
+                    <Card variant="outlined">
+                      <CardContent>
+                        <Typography variant="caption" color="text.secondary">
+                          Mine Blocks
+                        </Typography>
+                        <Typography variant="h5" color="error">
+                          {selectedSummary.detectionCount}
+                        </Typography>
+                        {blockTrackingSummary && (
+                          <Typography variant="caption" color="text.secondary">
+                            {blockTrackingSummary.withPersistentIds || blockTrackingSummary.with_persistent_ids || 0} persistent IDs stored
+                          </Typography>
+                        )}
+                      </CardContent>
+                    </Card>
+                    <Card variant="outlined">
+                      <CardContent>
+                        <Typography variant="caption" color="text.secondary">
+                          Mining Coverage
+                        </Typography>
+                        <Typography variant="h5">
+                          {toPercentString(selectedSummary.coveragePct)}
+                        </Typography>
+                        {selectedSummary.avgConfidencePct !== undefined && selectedSummary.avgConfidencePct !== null && (
+                          <Typography variant="caption" color="text.secondary">
+                            Avg confidence {formatDecimal(selectedSummary.avgConfidencePct, 1)}%
+                          </Typography>
+                        )}
+                        {selectedSummary.maxConfidencePct !== undefined && selectedSummary.maxConfidencePct !== null && (
+                          <Typography variant="caption" color="text.secondary">
+                            Peak block {formatDecimal(selectedSummary.maxConfidencePct, 1)}%{selectedSummary.confidenceSource === 'summary' ? ' (summary)' : ''}
+                          </Typography>
+                        )}
+                      </CardContent>
+                    </Card>
+                    <Card variant="outlined">
+                      <CardContent>
+                        <Typography variant="caption" color="text.secondary">
+                          Mining Area
+                        </Typography>
+                        <Typography variant="h5" color="primary">
+                          {selectedSummary.miningAreaHa !== null && selectedSummary.miningAreaHa !== undefined
+                            ? `${formatDecimal(selectedSummary.miningAreaHa, 2)} ha`
+                            : '--'}
+                        </Typography>
+                        {selectedSummary.miningAreaKm2 !== null && selectedSummary.miningAreaKm2 !== undefined && (
+                          <Typography variant="caption" color="text.secondary">
+                            ({formatDecimal(selectedSummary.miningAreaKm2, 3)} km^2)
+                          </Typography>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </Box>
+                </Paper>
+              )}
+
+              {mineBlockRows.length > 0 ? (
+                <Box>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                    Mine Block Footprints
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    {mineBlockRows.length} blocks mapped across {selectedSummary?.tilesWithDetections ?? 0} detection tiles.
+                  </Typography>
+                  <MineBlockTable rows={mineBlockRows} />
+                </Box>
+              ) : (
+                <Paper sx={{ p: 2 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    No mine blocks detected for this analysis.
+                  </Typography>
+                </Paper>
+              )}
+
+              {(selectedAnalysis.userNotes || (selectedAnalysis.tags && selectedAnalysis.tags.length > 0)) && (
+                <Paper sx={{ p: 2 }}>
+                  <Stack spacing={2}>
+                    {selectedAnalysis.userNotes && (
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">
+                          Notes
+                        </Typography>
+                        <Typography variant="body2">{selectedAnalysis.userNotes}</Typography>
+                      </Box>
+                    )}
+                    {selectedAnalysis.tags && selectedAnalysis.tags.length > 0 && (
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">
+                          Tags
+                        </Typography>
+                        <Box sx={{ mt: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                          {selectedAnalysis.tags.map((tag) => (
+                            <Chip key={tag} label={tag} size="small" />
+                          ))}
+                        </Box>
+                      </Box>
+                    )}
                   </Stack>
                 </Paper>
-
-                {/* Statistics Grid */}
-                {selectedAnalysis.results && (
-                  <Paper sx={{ p: 2, bgcolor: 'background.default' }}>
-                    <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 'bold' }}>
-                      Analysis Statistics
-                    </Typography>
-                    {(() => {
-                      // Calculate totals from tiles
-                      const tiles = selectedAnalysis.results.tiles || [];
-                      const totalAreaM2 = tiles.reduce((sum: number, tile: any) => {
-                        return sum + (tile.total_area_m2 || 0);
-                      }, 0);
-                      
-                      // Use stored totalMiningArea if available, otherwise calculate from tiles
-                      let totalMiningAreaM2 = 0;
-                      if (selectedAnalysis.results.totalMiningArea?.m2) {
-                        totalMiningAreaM2 = selectedAnalysis.results.totalMiningArea.m2;
-                      } else {
-                        // Fallback: calculate from individual tile mining areas
-                        totalMiningAreaM2 = tiles.reduce((sum: number, tile: any) => {
-                          const tileArea = tile.total_area_m2 || 0;
-                          const miningPercent = tile.mining_percentage || 0;
-                          return sum + (tileArea * miningPercent / 100);
-                        }, 0);
-                      }
-                      
-                      return (
-                        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 2 }}>
-                          <Card variant="outlined">
-                            <CardContent>
-                              <Typography variant="caption" color="text.secondary">
-                                Total Area
-                              </Typography>
-                              <Typography variant="h5" color="primary">
-                                {(totalAreaM2 / 10000).toFixed(1)} ha
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                ({(totalAreaM2 / 1000000).toFixed(2)} km²)
-                              </Typography>
-                            </CardContent>
-                          </Card>
-                          <Card variant="outlined">
-                            <CardContent>
-                              <Typography variant="caption" color="text.secondary">
-                                Tiles Analyzed
-                              </Typography>
-                              <Typography variant="h5">
-                                {selectedAnalysis.results.totalTiles || 0}
-                              </Typography>
-                            </CardContent>
-                          </Card>
-                          <Card variant="outlined">
-                            <CardContent>
-                              <Typography variant="caption" color="text.secondary">
-                                Mine Blocks
-                              </Typography>
-                              <Typography variant="h5" color="error">
-                                {selectedAnalysis.results.detectionCount || 0}
-                              </Typography>
-                            </CardContent>
-                          </Card>
-                          <Card variant="outlined">
-                            <CardContent>
-                              <Typography variant="caption" color="text.secondary">
-                                Mining Area
-                              </Typography>
-                              <Typography variant="h6" color="error">
-                                {(totalMiningAreaM2 / 10000).toFixed(1)} ha
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                ({(totalMiningAreaM2 / 1000000).toFixed(4)} km²)
-                              </Typography>
-                            </CardContent>
-                          </Card>
-                        </Box>
-                      );
-                    })()}
-                  </Paper>
-                )}
-
-                {/* Tile Details Table */}
-                {selectedAnalysis.results?.tiles && selectedAnalysis.results.tiles.length > 0 && (
-                  <Paper sx={{ p: 2, bgcolor: 'background.default' }}>
-                    <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 'bold' }}>
-                      Tile-wise Analysis ({selectedAnalysis.results.tiles.length} tiles)
-                    </Typography>
-                    <TableContainer sx={{ maxHeight: 300 }}>
-                      <Table size="small" stickyHeader>
-                        <TableHead>
-                          <TableRow>
-                            <TableCell>Tile</TableCell>
-                            <TableCell align="center">Mining</TableCell>
-                            <TableCell align="right">Coverage %</TableCell>
-                            <TableCell align="right">Blocks</TableCell>
-                            <TableCell align="right">Total Area</TableCell>
-                            <TableCell align="right">Mining Area</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {selectedAnalysis.results.tiles.map((tile: any, idx: number) => {
-                            const tileAreaM2 = tile.total_area_m2 || 0;
-                            const miningPercent = tile.mining_percentage || 0;
-                            const tileMiningAreaM2 = (tileAreaM2 * miningPercent) / 100;
-                            
-                            return (
-                              <TableRow key={idx} hover>
-                                <TableCell>#{idx + 1}</TableCell>
-                                <TableCell align="center">
-                                  <Chip
-                                    size="small"
-                                    label={tile.mining_detected ? 'Yes' : 'No'}
-                                    color={tile.mining_detected ? 'error' : 'success'}
-                                    variant="outlined"
-                                  />
-                                </TableCell>
-                                <TableCell align="right">
-                                  {miningPercent.toFixed(2)}%
-                                </TableCell>
-                                <TableCell align="right">
-                                  {tile.num_mine_blocks || 0}
-                                </TableCell>
-                                <TableCell align="right">
-                                  <Typography variant="body2">
-                                    {(tileAreaM2 / 10000).toFixed(2)} ha
-                                  </Typography>
-                                  <Typography variant="caption" color="text.secondary">
-                                    ({(tileAreaM2 / 1000000).toFixed(4)} km²)
-                                  </Typography>
-                                </TableCell>
-                                <TableCell align="right">
-                                  <Typography variant="body2" color={tile.mining_detected ? 'error' : 'text.secondary'}>
-                                    {(tileMiningAreaM2 / 10000).toFixed(2)} ha
-                                  </Typography>
-                                  <Typography variant="caption" color="text.secondary">
-                                    ({(tileMiningAreaM2 / 1000000).toFixed(4)} km²)
-                                  </Typography>
-                                </TableCell>
-                              </TableRow>
-                            );
-                          })}
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
-                  </Paper>
-                )}
-
-                {/* Mine Blocks Preview */}
-                {(selectedAnalysis.results?.mergedBlocks || selectedAnalysis.results?.tiles) && (
-                  <Paper sx={{ p: 2, bgcolor: 'background.default' }}>
-                    <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 'bold' }}>
-                      Detected Mine Blocks
-                    </Typography>
-                    {(() => {
-                      // Try merged blocks first
-                      if (selectedAnalysis.results?.mergedBlocks?.features && 
-                          selectedAnalysis.results.mergedBlocks.features.length > 0) {
-                        const mergedFeatures = selectedAnalysis.results.mergedBlocks.features;
-                        return (
-                          <Box>
-                            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                              {mergedFeatures.length} blocks detected 
-                              (merged from {selectedAnalysis.results.mergedBlocks.metadata?.original_block_count || 0} original detections)
-                            </Typography>
-                            <TableContainer sx={{ maxHeight: 300 }}>
-                              <Table size="small" stickyHeader>
-                                <TableHead>
-                                  <TableRow>
-                                    <TableCell>Block ID</TableCell>
-                                    <TableCell>Name</TableCell>
-                                    <TableCell align="right">Area (ha)</TableCell>
-                                    <TableCell align="right">Confidence</TableCell>
-                                    <TableCell align="center">Type</TableCell>
-                                  </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                  {mergedFeatures.slice(0, 10).map((feature: any, idx: number) => (
-                                    <TableRow key={idx} hover>
-                                      <TableCell>
-                                        <Typography variant="body2" fontFamily="monospace" fontSize="0.75rem">
-                                          {feature.properties.block_id}
-                                        </Typography>
-                                      </TableCell>
-                                      <TableCell>{feature.properties.name}</TableCell>
-                                      <TableCell align="right">
-                                        {((feature.properties.area_m2 || 0) / 10000).toFixed(2)}
-                                      </TableCell>
-                                      <TableCell align="right">
-                                        {((feature.properties.avg_confidence || 0) * 100).toFixed(1)}%
-                                      </TableCell>
-                                      <TableCell align="center">
-                                        <Chip
-                                          size="small"
-                                          label={feature.properties.is_merged ? 'Merged' : 'Single'}
-                                          color={feature.properties.is_merged ? 'primary' : 'default'}
-                                          variant="outlined"
-                                        />
-                                      </TableCell>
-                                    </TableRow>
-                                  ))}
-                                </TableBody>
-                              </Table>
-                            </TableContainer>
-                            {mergedFeatures.length > 10 && (
-                              <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                                Showing first 10 of {mergedFeatures.length} blocks
-                              </Typography>
-                            )}
-                          </Box>
-                        );
-                      }
-                      
-                      // Fallback to individual tile blocks
-                      const tileBlocks: any[] = [];
-                      selectedAnalysis.results?.tiles?.forEach((tile: any, tileIdx: number) => {
-                        if (tile.mine_blocks && Array.isArray(tile.mine_blocks)) {
-                          tile.mine_blocks.forEach((block: any, blockIdx: number) => {
-                            // Handle both GeoJSON format and flat object format
-                            const props = block.properties || block;
-                            
-                            // Extract fields with multiple fallbacks
-                            const blockId = props.block_id || props.blockId || `T${tileIdx + 1}B${blockIdx + 1}`;
-                            const name = props.name || blockId;
-                            const area_m2 = props.area_m2 || props.areaM2 || 0;
-                            const confidence = props.confidence || props.avg_confidence || props.avgConfidence || 0;
-                            const tileId = tile.tile_id || tile.tileId || tile.id || `T${tileIdx + 1}`;
-                            
-                            tileBlocks.push({
-                              blockId,
-                              name,
-                              area_m2,
-                              confidence,
-                              tileId,
-                              geometry: block.geometry,
-                              properties: props
-                            });
-                          });
-                        }
-                      });
-                      
-                      if (tileBlocks.length > 0) {
-                        return (
-                          <Box>
-                            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                              {tileBlocks.length} blocks detected across {selectedAnalysis.results?.tiles?.filter((t: any) => t.mine_blocks?.length > 0).length || 0} tiles
-                            </Typography>
-                            <TableContainer sx={{ maxHeight: 300 }}>
-                              <Table size="small" stickyHeader>
-                                <TableHead>
-                                  <TableRow>
-                                    <TableCell>Block ID</TableCell>
-                                    <TableCell>Tile</TableCell>
-                                    <TableCell align="right">Area (ha)</TableCell>
-                                    <TableCell align="right">Confidence</TableCell>
-                                  </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                  {tileBlocks.slice(0, 10).map((block: any, idx: number) => (
-                                    <TableRow key={idx} hover>
-                                      <TableCell>
-                                        <Typography variant="body2" fontFamily="monospace" fontSize="0.75rem">
-                                          {block.blockId}
-                                        </Typography>
-                                      </TableCell>
-                                      <TableCell>
-                                        <Chip size="small" label={block.tileId} variant="outlined" />
-                                      </TableCell>
-                                      <TableCell align="right">
-                                        <Typography variant="body2" fontWeight="bold">
-                                          {(block.area_m2 / 10000).toFixed(2)}
-                                        </Typography>
-                                      </TableCell>
-                                      <TableCell align="right">
-                                        <Typography variant="body2" color="success.main">
-                                          {(block.confidence * 100).toFixed(1)}%
-                                        </Typography>
-                                      </TableCell>
-                                    </TableRow>
-                                  ))}
-                                </TableBody>
-                              </Table>
-                            </TableContainer>
-                            {tileBlocks.length > 10 && (
-                              <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                                Showing first 10 of {tileBlocks.length} blocks
-                              </Typography>
-                            )}
-                          </Box>
-                        );
-                      }
-                      
-                      // No blocks found
-                      return (
-                        <Typography variant="body2" color="text.secondary">
-                          No mine blocks detected
-                        </Typography>
-                      );
-                    })()}
-                  </Paper>
-                )}
-
-                {/* Notes and Tags */}
-                {(selectedAnalysis.userNotes || (selectedAnalysis.tags && selectedAnalysis.tags.length > 0)) && (
-                  <Paper sx={{ p: 2, bgcolor: 'background.default' }}>
-                    <Stack spacing={2}>
-                      {selectedAnalysis.userNotes && (
-                        <Box>
-                          <Typography variant="caption" color="text.secondary">
-                            Notes
-                          </Typography>
-                          <Typography variant="body2">{selectedAnalysis.userNotes}</Typography>
-                        </Box>
-                      )}
-                      {selectedAnalysis.tags && selectedAnalysis.tags.length > 0 && (
-                        <Box>
-                          <Typography variant="caption" color="text.secondary">
-                            Tags
-                          </Typography>
-                          <Box sx={{ mt: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                            {selectedAnalysis.tags.map((tag, idx) => (
-                              <Chip key={idx} label={tag} size="small" />
-                            ))}
-                          </Box>
-                        </Box>
-                      )}
-                    </Stack>
-                  </Paper>
-                )}
-              </Stack>
-            </Box>
+              )}
+            </Stack>
           )}
         </DialogContent>
         <DialogActions>
@@ -1001,39 +1355,37 @@ const AnalysisHistoryPage: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Edit Dialog */}
       <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Edit Analysis</DialogTitle>
+        <DialogTitle>Edit Analysis Notes</DialogTitle>
         <DialogContent>
-          <Stack spacing={2} sx={{ pt: 2 }}>
+          <Stack spacing={2} sx={{ pt: 1 }}>
             <TextField
               fullWidth
               label="Notes"
               multiline
-              rows={4}
+              minRows={4}
               value={editNotes}
-              onChange={(e) => setEditNotes(e.target.value)}
+              onChange={(event) => setEditNotes(event.target.value)}
             />
             <TextField
               fullWidth
               label="Tags (comma-separated)"
               value={editTags}
-              onChange={(e) => setEditTags(e.target.value)}
+              onChange={(event) => setEditTags(event.target.value)}
               helperText="e.g., mining, high-priority, region-1"
             />
           </Stack>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setEditDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleSaveEdit} variant="contained">
+          <Button variant="contained" onClick={handleSaveEdit}>
             Save
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
-        <DialogTitle>Confirm Delete</DialogTitle>
+        <DialogTitle>Delete Analysis</DialogTitle>
         <DialogContent>
           <Typography>
             Are you sure you want to delete this analysis? This action cannot be undone.
@@ -1046,7 +1398,7 @@ const AnalysisHistoryPage: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleConfirmDelete} color="error" variant="contained">
+          <Button color="error" variant="contained" onClick={handleConfirmDelete}>
             Delete
           </Button>
         </DialogActions>

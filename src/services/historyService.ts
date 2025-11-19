@@ -12,18 +12,8 @@ export interface ProcessingLog {
   timestamp: Date;
 }
 
-export interface TileResult {
-  tileId: string;
-  lat: number;
-  lng: number;
-  detectionCount: number;
-  confidence: number;
-  imageUrl?: string;
-  mineBlocks?: any[];
-}
-
 export interface AnalysisResults {
-  tiles: TileResult[];
+  tiles: any[];
   detections: any[];
   mergedBlocks: any;
   totalTiles: number;
@@ -45,6 +35,22 @@ export interface AnalysisResults {
     maxConfidence?: number;
     minConfidence?: number;
     coveragePercentage?: number;
+  };
+  summary?: {
+    total_tiles?: number;
+    tiles_with_detections?: number;
+    mine_block_count?: number;
+    mining_percentage?: number;
+    mining_area_m2?: number;
+    confidence?: number;
+    [key: string]: unknown;
+  };
+  blockTracking?: {
+    summary?: {
+      total?: number;
+      withPersistentIds?: number;
+    };
+    blocks: any[];
   };
 }
 
@@ -170,8 +176,22 @@ export const updateAnalysis = async (
 /**
  * Delete single analysis
  */
-export const deleteAnalysis = async (analysisId: string): Promise<void> => {
-  await apiClient.delete(`/history/${analysisId}`);
+export interface DeleteAnalysisResult {
+  deleted: boolean;
+  notFound?: boolean;
+}
+
+export const deleteAnalysis = async (analysisId: string): Promise<DeleteAnalysisResult> => {
+  try {
+    await apiClient.delete(`/history/${analysisId}`);
+    return { deleted: true };
+  } catch (error: any) {
+    if (error?.status === 404) {
+      console.warn(`⚠️ Analysis ${analysisId} already missing, treating as deleted.`);
+      return { deleted: false, notFound: true };
+    }
+    throw error;
+  }
 };
 
 /**

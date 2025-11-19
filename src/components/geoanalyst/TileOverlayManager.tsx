@@ -35,6 +35,30 @@ export const TileOverlayManager: React.FC<TileOverlayManagerProps> = ({
   const [showHeatmap, setShowHeatmap] = useState(showProbabilityMaps);
   const [showPolygons, setShowPolygons] = useState(showMineBlocks);
   const [stats, setStats] = useState({ total: 0, withImages: 0, withHeatmaps: 0, withDetections: 0 });
+  const previousTileCountRef = useRef(0);
+
+  const isMapReady = (candidate: L.Map | null | undefined): candidate is L.Map => {
+    if (!candidate) {
+      return false;
+    }
+    const container = candidate.getContainer?.();
+    const panes = (candidate as L.Map & { _panes?: Record<string, HTMLElement> })._panes;
+    return Boolean(container && panes?.overlayPane);
+  };
+
+  const removeLayerSafely = (candidate: L.Map | null | undefined, layer: L.Layer) => {
+    if (!isMapReady(candidate)) {
+      return;
+    }
+    if (!candidate.hasLayer(layer)) {
+      return;
+    }
+    try {
+      candidate.removeLayer(layer);
+    } catch (error) {
+      console.warn('⚠️ Error removing layer:', error);
+    }
+  };
 
   // Sync local opacity state with props
   useEffect(() => {
@@ -69,11 +93,23 @@ export const TileOverlayManager: React.FC<TileOverlayManagerProps> = ({
     setStats({ total, withImages, withHeatmaps, withDetections });
   }, [tiles]);
 
+  useEffect(() => {
+    const tileCount = tiles.length;
+    if (tileCount > 0 && previousTileCountRef.current === 0) {
+      setShowSatellite(true);
+      setShowHeatmap(true);
+      setShowPolygons(true);
+    }
+    previousTileCountRef.current = tileCount;
+  }, [tiles]);
+
   // Add/update satellite tile overlays
   useEffect(() => {
-    if (!map || !showSatellite) {
+    const readyMap = isMapReady(map) ? map : null;
+
+    if (!readyMap || !showSatellite) {
       // Remove all satellite tiles if hidden
-      satelliteTileLayersRef.current.forEach(layer => map?.removeLayer(layer));
+      satelliteTileLayersRef.current.forEach(layer => removeLayerSafely(map, layer));
       return;
     }
 
@@ -81,7 +117,7 @@ export const TileOverlayManager: React.FC<TileOverlayManagerProps> = ({
       if (!tile.image_base64 || !tile.bounds || tile.bounds.length < 4) return;
 
       // Ensure map exists and is a valid Leaflet map
-      if (!map || typeof map.addLayer !== 'function') {
+      if (!isMapReady(readyMap)) {
         console.error(`❌ Map is invalid for satellite tile ${tile.index}:`, map);
         return;
       }
@@ -102,8 +138,8 @@ export const TileOverlayManager: React.FC<TileOverlayManagerProps> = ({
           if (leafletBounds && leafletBounds.isValid()) {
             existingLayer.setBounds(leafletBounds);
             existingLayer.setOpacity(localSatelliteOpacity);
-            if (!map.hasLayer(existingLayer)) {
-              map.addLayer(existingLayer);
+            if (!readyMap.hasLayer(existingLayer)) {
+              readyMap.addLayer(existingLayer);
             }
           }
         } catch (error) {
@@ -145,8 +181,8 @@ export const TileOverlayManager: React.FC<TileOverlayManagerProps> = ({
 
           // Safely add to map
           try {
-            if (map && map.getContainer() && typeof map.addLayer === 'function') {
-              map.addLayer(imageOverlay);
+            if (isMapReady(readyMap)) {
+              readyMap.addLayer(imageOverlay);
               satelliteTileLayersRef.current.set(tileId, imageOverlay);
             } else {
               console.warn(`⚠️ Map not ready for satellite tile ${tile.index}`);
@@ -165,9 +201,7 @@ export const TileOverlayManager: React.FC<TileOverlayManagerProps> = ({
     satelliteTileLayersRef.current.forEach((layer, id) => {
       if (!currentTileIds.has(id)) {
         try {
-          if (map && map.hasLayer(layer)) {
-            map.removeLayer(layer);
-          }
+          removeLayerSafely(map, layer);
         } catch (error) {
           console.warn(`⚠️ Error removing satellite tile layer ${id}:`, error);
         }
@@ -178,9 +212,11 @@ export const TileOverlayManager: React.FC<TileOverlayManagerProps> = ({
 
   // Add/update probability map (heatmap) overlays
   useEffect(() => {
-    if (!map || !showHeatmap) {
+    const readyMap = isMapReady(map) ? map : null;
+
+    if (!readyMap || !showHeatmap) {
       // Remove all heatmaps if hidden
-      heatmapLayersRef.current.forEach(layer => map?.removeLayer(layer));
+      heatmapLayersRef.current.forEach(layer => removeLayerSafely(map, layer));
       return;
     }
 
@@ -209,8 +245,8 @@ export const TileOverlayManager: React.FC<TileOverlayManagerProps> = ({
           existingLayer.setOpacity(localHeatmapOpacity);
           
           // Ensure map exists and is a valid Leaflet map
-          if (map && map.getContainer() && typeof map.addLayer === 'function' && !map.hasLayer(existingLayer)) {
-            map.addLayer(existingLayer);
+          if (isMapReady(readyMap) && !readyMap.hasLayer(existingLayer)) {
+            readyMap.addLayer(existingLayer);
           }
         } catch (error) {
           console.error(`❌ Error updating heatmap for tile ${tileId}:`, error);
@@ -239,7 +275,7 @@ export const TileOverlayManager: React.FC<TileOverlayManagerProps> = ({
           }
 
           // Ensure map exists and is a valid Leaflet map
-          if (!map || typeof map.addLayer !== 'function') {
+          if (!isMapReady(readyMap)) {
             console.error(`❌ Map is invalid for tile ${tile.index}:`, map);
             return;
           }
@@ -248,8 +284,8 @@ export const TileOverlayManager: React.FC<TileOverlayManagerProps> = ({
           const miningDetected = tile.miningDetected || tile.mining_detected || false;
           const miningPercentage = tile.miningPercentage || tile.mining_percentage || 0;
           const miningInfo = miningDetected 
-            ? `⚠️ MINING DETECTED<br/>Coverage: ${miningPercentage.toFixed(1)}%<br/>Confidence: ${(tile.confidence * 100).toFixed(1)}%<br/>Blocks: ${tile.num_mine_blocks || 0}`
-            : `✓ No mining detected`;
+            ? `Mining detected<br/>Coverage: ${miningPercentage.toFixed(1)}%<br/>Confidence: ${(tile.confidence * 100).toFixed(1)}%<br/>Blocks: ${tile.num_mine_blocks || 0}`
+            : `No mining detected`;
           
           try {
             heatmapOverlay.bindTooltip(
@@ -262,8 +298,8 @@ export const TileOverlayManager: React.FC<TileOverlayManagerProps> = ({
 
           // Safely add to map using addLayer instead of addTo
           try {
-            if (map && map.getContainer() && typeof map.addLayer === 'function') {
-              map.addLayer(heatmapOverlay);
+            if (isMapReady(readyMap)) {
+              readyMap.addLayer(heatmapOverlay);
               heatmapLayersRef.current.set(tileId, heatmapOverlay);
             } else {
               console.warn(`⚠️ Map not ready for heatmap overlay ${tile.index}`);
@@ -281,7 +317,7 @@ export const TileOverlayManager: React.FC<TileOverlayManagerProps> = ({
     const currentTileIds = new Set(tiles.map(t => String(t.id || t.tile_id || `tile-${t.index}`)));
     heatmapLayersRef.current.forEach((layer, id) => {
       if (!currentTileIds.has(id)) {
-        map.removeLayer(layer);
+        removeLayerSafely(map, layer);
         heatmapLayersRef.current.delete(id);
       }
     });
@@ -289,9 +325,11 @@ export const TileOverlayManager: React.FC<TileOverlayManagerProps> = ({
 
   // Add/update mine block polygons
   useEffect(() => {
-    if (!map || !showPolygons) {
+    const readyMap = isMapReady(map) ? map : null;
+
+    if (!readyMap || !showPolygons) {
       // Remove all polygons if hidden
-      polygonLayersRef.current.forEach(layer => map?.removeLayer(layer));
+      polygonLayersRef.current.forEach(layer => removeLayerSafely(map, layer));
       return;
     }
 
@@ -303,7 +341,7 @@ export const TileOverlayManager: React.FC<TileOverlayManagerProps> = ({
 
       // Remove existing layer if present
       if (existingLayer) {
-        map.removeLayer(existingLayer);
+        removeLayerSafely(map, existingLayer);
       }
 
       // Create new feature group for this tile's polygons
@@ -311,40 +349,35 @@ export const TileOverlayManager: React.FC<TileOverlayManagerProps> = ({
 
       tile.mine_blocks.forEach((block, idx) => {
         try {
-          // Convert GeoJSON coordinates to Leaflet format
-          const coordinates = block.geometry.coordinates.map((ring: any) => {
-            if (Array.isArray(ring[0]) && Array.isArray(ring[0][0])) {
-              // MultiPolygon
-              return ring.map((r: number[][]) => r.map(coord => [coord[1], coord[0]] as [number, number]));
-            } else {
-              // Polygon
-              return ring.map((coord: number[]) => [coord[1], coord[0]] as [number, number]);
+          const featureLayer = L.geoJSON(block, {
+            style: {
+              color: '#fbbf24',
+              weight: 1.5,
+              fillColor: '#f59e0b',
+              fillOpacity: 0.28,
+            },
+            onEachFeature: (feature, layer) => {
+              const props = feature.properties || {};
+              const areaHa = (props.area_m2 || 0) / 10_000;
+              const avgConfidenceRaw = typeof props.avg_confidence === 'number' ? props.avg_confidence : 0;
+              const confidencePercent = avgConfidenceRaw > 1
+                ? avgConfidenceRaw
+                : avgConfidenceRaw * 100;
+
+              layer.bindPopup(
+                `<div style="font-family: sans-serif;">
+                  <h3 style="margin: 0 0 8px 0; color: #fbbf24;">${props.name || `Block ${idx + 1}`}</h3>
+                  <div><strong>Block ID:</strong> ${props.block_id || '-'}</div>
+                  <div><strong>Area:</strong> ${areaHa.toFixed(4)} hectares</div>
+                  <div><strong>Confidence:</strong> ${confidencePercent.toFixed(1)}%</div>
+                  <div><strong>Tile:</strong> ${tileId}</div>
+                  ${props.is_merged ? '<div style="color: #fcd34d;"><strong>Merged footprint</strong></div>' : ''}
+                </div>`
+              );
             }
           });
 
-          const polygon = L.polygon(coordinates[0], {
-            color: '#ef4444',
-            weight: 2,
-            fillColor: '#fca5a5',
-            fillOpacity: 0.3,
-            interactive: true,
-          });
-
-          // Add popup with block information
-          const area_ha = (block.properties.area_m2 || 0) / 10000;
-          const confidence = (block.properties.avg_confidence * 100).toFixed(1);
-          
-          polygon.bindPopup(
-            `<div style="font-family: sans-serif;">
-              <h3 style="margin: 0 0 8px 0; color: #ef4444;">⚠️ ${block.properties.name || `Block ${idx + 1}`}</h3>
-              <div><strong>Area:</strong> ${area_ha.toFixed(4)} hectares</div>
-              <div><strong>Confidence:</strong> ${confidence}%</div>
-              <div><strong>Tile:</strong> ${tileId}</div>
-              ${block.properties.is_merged ? '<div style="color: #f59e0b;"><strong>Merged Block</strong></div>' : ''}
-            </div>`
-          );
-
-          polygon.addTo(featureGroup);
+          featureLayer.addTo(featureGroup);
         } catch (err) {
           console.error(`Failed to render block ${idx} in tile ${tileId}:`, err);
         }
@@ -352,15 +385,15 @@ export const TileOverlayManager: React.FC<TileOverlayManagerProps> = ({
 
       // Safely add feature group to map
       // Ensure map exists and is a valid Leaflet map
-      if (!map || typeof map.addLayer !== 'function') {
+      if (!isMapReady(readyMap)) {
         console.error(`❌ Map is invalid for tile ${tileId}:`, map);
         return;
       }
 
       if (featureGroup && typeof featureGroup.addLayer === 'function' && featureGroup.getLayers().length > 0) {
         try {
-          if (map && map.getContainer() && typeof map.addLayer === 'function') {
-            map.addLayer(featureGroup);
+          if (isMapReady(readyMap)) {
+            readyMap.addLayer(featureGroup);
             polygonLayersRef.current.set(tileId, featureGroup);
           } else {
             console.warn(`⚠️ Map not ready for polygon layer ${tileId}`);
@@ -377,7 +410,7 @@ export const TileOverlayManager: React.FC<TileOverlayManagerProps> = ({
     const currentTileIds = new Set(tiles.map(t => String(t.id || t.tile_id || `tile-${t.index}`)));
     polygonLayersRef.current.forEach((layer, id) => {
       if (!currentTileIds.has(id)) {
-        map.removeLayer(layer);
+        removeLayerSafely(map, layer);
         polygonLayersRef.current.delete(id);
       }
     });
@@ -386,10 +419,10 @@ export const TileOverlayManager: React.FC<TileOverlayManagerProps> = ({
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (map) {
-        satelliteTileLayersRef.current.forEach(layer => map.removeLayer(layer));
-        heatmapLayersRef.current.forEach(layer => map.removeLayer(layer));
-        polygonLayersRef.current.forEach(layer => map.removeLayer(layer));
+      if (isMapReady(map)) {
+        satelliteTileLayersRef.current.forEach(layer => removeLayerSafely(map, layer));
+        heatmapLayersRef.current.forEach(layer => removeLayerSafely(map, layer));
+        polygonLayersRef.current.forEach(layer => removeLayerSafely(map, layer));
       }
       satelliteTileLayersRef.current.clear();
       heatmapLayersRef.current.clear();

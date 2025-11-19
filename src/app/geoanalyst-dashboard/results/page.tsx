@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -8,25 +8,12 @@ import {
   Paper,
   Typography,
   Button,
-  Card,
-  CardContent,
-  Chip,
   Alert,
-  Divider,
   CircularProgress,
   IconButton,
   Tooltip,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  LinearProgress,
 } from '@mui/material';
 import {
-  CheckCircle,
-  Warning,
   Download,
   ArrowBack,
   ZoomIn,
@@ -37,8 +24,15 @@ import {
 import { styled } from '@mui/material/styles';
 import { TileOverlayManager } from '@/components/geoanalyst/TileOverlayManager';
 import { ResultsStatistics } from '@/components/geoanalyst/ResultsStatistics';
+import { MineBlockTable } from '@/components/geoanalyst/MineBlockTable';
 import { saveAnalysis, getAnalysisById } from '@/services/historyService';
 import { useAuth } from '@/contexts/AuthContext';
+import {
+  deriveTileAreaMetrics,
+  deriveConfidenceMetrics,
+  normalizeConfidenceValue,
+  parseNumeric,
+} from '@/lib/analysisMetrics';
 
 // Fix Leaflet default marker icons
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -59,14 +53,14 @@ const GoldenText = styled(Typography)({
 // API Base URL from environment
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
-interface MineBlock {
-  blockId: string;
-  tileIndex: number;
-  area: number;
-  confidence: number;
-  centroid?: [number, number];
-  geometry?: any;
-}
+const clampPercent = (value: number) => Math.max(0, Math.min(100, value));
+const formatPercent = (value: number | null | undefined, fractionDigits = 1) => {
+  if (value === undefined || value === null || Number.isNaN(value)) {
+    return '--';
+  }
+
+  return value.toFixed(fractionDigits);
+};
 
 const ResultsPage = () => {
   const router = useRouter();
@@ -78,7 +72,6 @@ const ResultsPage = () => {
   const [results, setResults] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
-  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [splitPosition, setSplitPosition] = useState(60); // 60% left, 40% right
   const [isDragging, setIsDragging] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
@@ -89,50 +82,7 @@ const ResultsPage = () => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const selectedMarkerRef = useRef<L.Marker | null>(null);
 
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      router.replace('/login');
-    }
-  }, [authLoading, isAuthenticated, router]);
-
-  if (authLoading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return null;
-  }
-
-  // Extract mine blocks from results
-  const mineBlocks: MineBlock[] = React.useMemo(() => {
-    if (!results?.tiles) return [];
-    
-    const blocks: MineBlock[] = [];
-    results.tiles.forEach((tile: any, tileIdx: number) => {
-      if (tile.mineBlocks || tile.mine_blocks) {
-        const tileBlocks = tile.mineBlocks || tile.mine_blocks;
-        tileBlocks.forEach((block: any, blockIdx: number) => {
-          blocks.push({
-            blockId: `T${tile.tileIndex || tileIdx}B${blockIdx + 1}`,
-            tileIndex: tile.tileIndex || tileIdx,
-            area: block.area || 0,
-            confidence: block.confidence || 0,
-            centroid: block.centroid,
-            geometry: block.geometry,
-          });
-        });
-      }
-    });
-    return blocks;
-  }, [results]);
-
-  // Handle dragging for split view
   const handleMouseDown = useCallback(() => {
     setIsDragging(true);
   }, []);
@@ -141,52 +91,33 @@ const ResultsPage = () => {
     setIsDragging(false);
   }, []);
 
-  const handleMouseMove = useCallback((e: MouseEvent) => {
+  const handleMouseMove = useCallback((event: MouseEvent) => {
     if (!isDragging || !containerRef.current) return;
 
     const containerRect = containerRef.current.getBoundingClientRect();
-    const newPosition = ((e.clientX - containerRect.left) / containerRect.width) * 100;
-    
-    // Clamp between 40% and 70%
+    const newPosition = ((event.clientX - containerRect.left) / containerRect.width) * 100;
     setSplitPosition(Math.max(40, Math.min(70, newPosition)));
   }, [isDragging]);
 
   useEffect(() => {
-    if (isDragging) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-      return () => {
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
-      };
+    if (!isDragging) {
+      return undefined;
     }
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
   }, [isDragging, handleMouseMove, handleMouseUp]);
 
-  // Handle block selection
-  const handleBlockClick = useCallback((blockId: string) => {
-    setSelectedBlockId(blockId === selectedBlockId ? null : blockId);
-    
-    // Zoom to block on map
-    const block = mineBlocks.find(b => b.blockId === blockId);
-    if (block && block.centroid && mapInstanceRef.current) {
-      mapInstanceRef.current.setView([block.centroid[1], block.centroid[0]], 15, { animate: true });
-      
-      // Add temporary marker
-      if (selectedMarkerRef.current) {
-        selectedMarkerRef.current.remove();
-      }
-      
-      const marker = L.marker([block.centroid[1], block.centroid[0]], {
-        icon: L.divIcon({
-          className: 'selected-block-marker',
-          html: `<div style="background: #fbbf24; border: 3px solid #fff; width: 20px; height: 20px; border-radius: 50%; box-shadow: 0 0 10px rgba(251,191,36,0.8);"></div>`,
-        })
-      }).addTo(mapInstanceRef.current);
-      
-      selectedMarkerRef.current = marker;
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.replace('/login');
     }
-  }, [selectedBlockId, mineBlocks]);
-
+  }, [authLoading, isAuthenticated, router]);
   useEffect(() => {
     if (!analysisId) {
       setError('No analysis ID provided');
@@ -197,6 +128,10 @@ const ResultsPage = () => {
     // Prevent double-fetching in React strict mode
     if (fetchAttemptedRef.current) {
       console.log('⏭️  Skipping duplicate fetch (already attempted)');
+      return;
+    }
+
+    if (!isAuthenticated) {
       return;
     }
 
@@ -260,7 +195,7 @@ const ResultsPage = () => {
       fetchAttemptedRef.current = false;
       saveAttemptedRef.current = false;
     };
-  }, [analysisId]);
+  }, [analysisId, isAuthenticated]);
 
   // Auto-save analysis to database when results are loaded
   useEffect(() => {
@@ -371,6 +306,218 @@ const ResultsPage = () => {
     };
   }, [results]);
 
+  useEffect(() => {
+    if (!mapInstanceRef.current) {
+      return;
+    }
+
+    const map = mapInstanceRef.current;
+    map.invalidateSize();
+    const timeout = window.setTimeout(() => {
+      map.invalidateSize();
+    }, 150);
+
+    return () => window.clearTimeout(timeout);
+  }, [fullscreen, splitPosition, !!results]);
+
+  const summary = results?.summary ?? {};
+  const tileAreaMetrics = useMemo(() => deriveTileAreaMetrics(results?.tiles), [results?.tiles]);
+  const confidenceMetrics = useMemo(() => deriveConfidenceMetrics(results), [results]);
+
+  const summaryTotalTiles = summary.total_tiles ?? results?.tiles?.length ?? 0;
+  const summaryTilesWithDetections = summary.tiles_with_detections ?? results?.tiles?.filter((t: any) => t.mining_detected || t.miningDetected)?.length ?? 0;
+  const summaryMineBlocks = summary.mine_block_count ?? results?.merged_block_count ?? results?.total_mine_blocks ?? 0;
+
+  const fallbackCoverage = summary.mining_percentage ?? results?.statistics?.coveragePercentage ?? results?.statistics?.coverage_percentage;
+  const normalizedFallbackCoverage = typeof fallbackCoverage === 'number'
+    ? (fallbackCoverage > 1 ? fallbackCoverage : fallbackCoverage * 100)
+    : null;
+  const summaryCoverage = tileAreaMetrics.coveragePct ?? normalizedFallbackCoverage ?? 0;
+
+  const summaryMiningAreaM2FromSummary = (() => {
+    const areaFromSummary = parseNumeric((summary as any).mining_area_m2);
+    if (areaFromSummary !== undefined) {
+      return areaFromSummary;
+    }
+    const totalMiningArea = (results as any)?.totalMiningArea ?? (results as any)?.total_mining_area;
+    if (totalMiningArea) {
+      const ha = parseNumeric(totalMiningArea.hectares ?? totalMiningArea.hectare);
+      if (ha !== undefined) {
+        return ha * 10_000;
+      }
+      const m2 = parseNumeric(totalMiningArea.m2 ?? totalMiningArea.squareMeters);
+      if (m2 !== undefined) {
+        return m2;
+      }
+    }
+    return undefined;
+  })();
+
+  const summaryMiningAreaM2 = tileAreaMetrics.totalMiningAreaM2 > 0
+    ? tileAreaMetrics.totalMiningAreaM2
+    : summaryMiningAreaM2FromSummary ?? 0;
+
+  const summaryMiningAreaHa = summaryMiningAreaM2 / 10_000;
+  const summaryConfidencePct = confidenceMetrics.averagePct ?? null;
+  const summaryMaxConfidencePct = confidenceMetrics.maxPct ?? null;
+  const summaryMinConfidencePct = confidenceMetrics.minPct ?? null;
+  const confidenceSampleCount = confidenceMetrics.sampleCount;
+  const confidenceSource = confidenceMetrics.source;
+
+  const detectionShare = summaryTotalTiles > 0 ? (summaryTilesWithDetections / summaryTotalTiles) * 100 : 0;
+
+  const safeSummaryCoverage = Number.isFinite(summaryCoverage) ? clampPercent(summaryCoverage) : 0;
+  const safeSummaryConfidencePct = summaryConfidencePct !== null
+    ? clampPercent(summaryConfidencePct)
+    : undefined;
+  const safeSummaryMaxConfidencePct = summaryMaxConfidencePct !== null
+    ? clampPercent(summaryMaxConfidencePct)
+    : undefined;
+  const safeSummaryMinConfidencePct = summaryMinConfidencePct !== null
+    ? clampPercent(summaryMinConfidencePct)
+    : undefined;
+
+  const coverageDisplay = safeSummaryCoverage;
+  const miningAreaDisplay = Number.isFinite(summaryMiningAreaHa) ? summaryMiningAreaHa : 0;
+
+  const insightLines = [
+    `${summaryMineBlocks} consolidated blocks across ${summaryTilesWithDetections} detection tiles`,
+    `${coverageDisplay.toFixed(2)}% of the mosaic flagged with ${miningAreaDisplay.toFixed(2)} ha of activity`,
+  ];
+
+  if (safeSummaryConfidencePct !== undefined) {
+    const avgLabel = formatPercent(safeSummaryConfidencePct, 1);
+    const maxLabel = safeSummaryMaxConfidencePct !== undefined && safeSummaryMaxConfidencePct !== safeSummaryConfidencePct
+      ? formatPercent(safeSummaryMaxConfidencePct, 1)
+      : null;
+    const minLabel = safeSummaryMinConfidencePct !== undefined
+      && safeSummaryMinConfidencePct !== safeSummaryConfidencePct
+      && safeSummaryMinConfidencePct !== safeSummaryMaxConfidencePct
+      ? formatPercent(safeSummaryMinConfidencePct, 1)
+      : null;
+
+    const descriptor = confidenceSampleCount > 0
+      ? `${confidenceSampleCount} block sample${confidenceSampleCount === 1 ? '' : 's'}`
+      : confidenceSource === 'summary'
+        ? 'summary fallback'
+        : 'model statistics';
+
+    let confidenceLine = `Confidence averages ${avgLabel}%`;
+    if (maxLabel) {
+      confidenceLine += ` with a peak at ${maxLabel}%`;
+    }
+    if (minLabel) {
+      confidenceLine += ` and a floor of ${minLabel}%`;
+    }
+    confidenceLine += ` across ${descriptor}.`;
+
+    insightLines.push(confidenceLine);
+  }
+
+  insightLines.push('Confidence represents the detection model probability per mined block, normalized to a 0–100% range.');
+  insightLines.push(`Detections concentrated in ${detectionShare.toFixed(1)}% of processed tiles (${summaryTotalTiles})`);
+
+  const mineBlockRows = useMemo(() => {
+    const mergedFeatures = Array.isArray(results?.merged_blocks?.features)
+      ? results!.merged_blocks.features
+      : [];
+
+    const mergedRows = mergedFeatures.map((feature: any, index: number) => {
+      const props = feature?.properties || {};
+      const blockId = props.block_id || props.id || `merged-${index}`;
+      const name = props.name || `Merged Block ${index + 1}`;
+      const tileId = props.tile_id !== undefined && props.tile_id !== null
+        ? String(props.tile_id)
+        : 'mosaic';
+      const centroidArray = Array.isArray(props.label_position) && props.label_position.length >= 2
+        ? props.label_position.map((value: any) => (typeof value === 'number' ? value : Number(value)))
+        : undefined;
+      const boundsArray = Array.isArray(props.bbox) && props.bbox.length === 4
+        ? (props.bbox as any[]).map((value) => (typeof value === 'number' ? value : Number(value))) as [number, number, number, number]
+        : undefined;
+
+      return {
+        id: `merged-${blockId}`,
+        label: name,
+        tileId,
+        areaHa: (props.area_m2 || 0) / 10_000,
+  confidencePct: normalizeConfidenceValue(props.avg_confidence ?? props.confidence ?? props.mean_confidence),
+        source: 'Merged' as const,
+        isMerged: true,
+        persistentId: props.persistent_id || blockId,
+        blockIndex: props.block_index,
+        centroidLat: centroidArray?.[1],
+        centroidLon: centroidArray?.[0],
+        bounds: boundsArray,
+      };
+    });
+
+    const tileRows = Array.isArray(results?.tiles)
+      ? results!.tiles.flatMap((tile: any, tileIdx: number) => {
+          const tileBlocks = Array.isArray(tile.mine_blocks) ? tile.mine_blocks : [];
+          if (!tileBlocks.length) {
+            return [];
+          }
+
+          const tileLabel = tile.tile_label
+            ?? tile.tile_id
+            ?? (typeof tile.tile_index === 'number' ? `tile_${tile.tile_index}` : `Tile ${tileIdx + 1}`);
+          const displayTileId = tile.tile_id ? String(tile.tile_id) : tileLabel;
+
+          return tileBlocks.map((block: any, blockIdx: number) => {
+            const props = block?.properties || {};
+            const blockId = props.block_id || `${displayTileId}-block-${blockIdx + 1}`;
+            const displayLabel = props.name || `${tileLabel} · Block ${blockIdx + 1}`;
+            const centroidArray = Array.isArray(props.label_position) && props.label_position.length >= 2
+              ? props.label_position.map((value: any) => (typeof value === 'number' ? value : Number(value)))
+              : undefined;
+            const boundsArray = Array.isArray(props.bbox) && props.bbox.length === 4
+              ? (props.bbox as any[]).map((value) => (typeof value === 'number' ? value : Number(value))) as [number, number, number, number]
+              : undefined;
+
+            return {
+              id: `tile-${blockId}`,
+              label: displayLabel,
+              tileId: displayTileId,
+              areaHa: (props.area_m2 || 0) / 10_000,
+              confidencePct: normalizeConfidenceValue(props.avg_confidence ?? props.confidence ?? props.mean_confidence),
+              source: 'Tile' as const,
+              isMerged: !!props.is_merged,
+              persistentId: props.persistent_id || blockId,
+              blockIndex: props.block_index,
+              centroidLat: centroidArray?.[1],
+              centroidLon: centroidArray?.[0],
+              bounds: boundsArray,
+            };
+          });
+        })
+      : [];
+
+    const combined = [...mergedRows, ...tileRows];
+    combined.sort((a, b) => {
+      if (a.blockIndex !== undefined && b.blockIndex !== undefined) {
+        return a.blockIndex - b.blockIndex;
+      }
+      if (a.source !== b.source) {
+        return a.source === 'Merged' ? -1 : 1;
+      }
+      return b.areaHa - a.areaHa;
+    });
+    return combined;
+  }, [results]);
+
+  if (authLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return null;
+  }
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: 'linear-gradient(to right, #1a1a2e, #16213e, #0f3460)' }}>
@@ -386,12 +533,6 @@ const ResultsPage = () => {
       </Box>
     );
   }
-
-  const miningDetected = results?.mining_detected || results?.total_mining_pixels > 0 || 
-                         (results?.tiles && results.tiles.some((t: any) => t.miningDetected || t.mining_detected));
-  const detectionPercentage = results?.overall_mining_percentage || 0;
-  const totalTilesWithDetections = results?.tiles?.filter((t: any) => t.miningDetected || t.mining_detected).length || 0;
-
   const handleZoomToDetections = () => {
     if (!mapInstanceRef.current || !results?.tiles) return;
     
@@ -452,8 +593,8 @@ const ResultsPage = () => {
               <GoldenText variant="h5" fontWeight="bold" gutterBottom>
                 Analysis Results
               </GoldenText>
-              <Typography sx={{ color: 'rgba(252, 211, 77, 0.7)', fontSize: '0.875rem' }}>
-                Analysis ID: {analysisId?.slice(0, 8)}...
+              <Typography sx={{ color: 'rgba(252, 211, 77, 0.7)', fontSize: '0.8rem', fontFamily: 'monospace', wordBreak: 'break-all' }}>
+                Analysis ID: {analysisId}
               </Typography>
             </Box>
 
@@ -463,6 +604,28 @@ const ResultsPage = () => {
               onZoomToDetections={handleZoomToDetections}
             />
 
+            <Paper
+              sx={{
+                mt: 3,
+                p: 2,
+                background: 'rgba(26, 26, 46, 0.6)',
+                border: '1px solid rgba(251, 191, 36, 0.15)',
+              }}
+              elevation={0}
+            >
+              <GoldenText variant="subtitle2" fontWeight="bold">
+                Operational Insights
+              </GoldenText>
+              <Box sx={{ mt: 1.25, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+                {insightLines.map((line, index) => (
+                  <Typography key={index} sx={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.8rem' }}>
+                    {line}
+                  </Typography>
+                ))}
+              </Box>
+            </Paper>
+
+            <MineBlockTable rows={mineBlockRows} />
             {/* Action Buttons */}
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mt: 3 }}>
               <Button
@@ -498,6 +661,34 @@ const ResultsPage = () => {
                 Download GeoJSON Report
               </Button>
             </Box>
+
+            <Paper
+              sx={{
+                mt: 3,
+                p: 2,
+                background: 'rgba(26, 26, 46, 0.6)',
+                border: '1px solid rgba(251, 191, 36, 0.15)',
+              }}
+              elevation={0}
+            >
+              <GoldenText variant="subtitle2" fontWeight="bold">
+                Compliance Overlay (Next Phase)
+              </GoldenText>
+              <Typography sx={{ color: 'rgba(252, 211, 77, 0.6)', fontSize: '0.75rem', mt: 1 }}>
+                Upload authorised mining lease polygons to validate each detected block and flag variances automatically.
+              </Typography>
+              <Box sx={{ mt: 1.5, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+                <Typography sx={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.75rem' }}>
+                  - Dedicated lane for <strong>Government Permit</strong> GeoJSON / SHP imports
+                </Typography>
+                <Typography sx={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.75rem' }}>
+                  - Side-by-side comparison dashboard with legality badges per block
+                </Typography>
+                <Typography sx={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.75rem' }}>
+                  - Exportable compliance summary for audit submissions
+                </Typography>
+              </Box>
+            </Paper>
           </Box>
         )}
       </Box>
@@ -539,6 +730,7 @@ const ResultsPage = () => {
         {/* Tile Overlay Manager */}
         {mapInstanceRef.current && results?.tiles && (
           <TileOverlayManager
+            key={analysisId ?? 'analysis-view'}
             map={mapInstanceRef.current}
             tiles={results.tiles}
             showSatelliteTiles={true}
