@@ -3,7 +3,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import dynamic from 'next/dynamic';
-import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import type { CSSProperties, ReactElement } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Alert,
@@ -62,8 +63,53 @@ const GoldenText = styled(Typography)({
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 const PYTHON_API_BASE = process.env.NEXT_PUBLIC_PYTHON_API_URL || 'http://localhost:8000';
 
-const Plot = dynamic<any>(() => import('react-plotly.js'), { ssr: false });
-const plotConfig = { displayModeBar: false, responsive: true } as const;
+type PlotlyDatum = Record<string, unknown>;
+type PlotlyLayout = Record<string, unknown>;
+type PlotlyConfig = Record<string, unknown>;
+
+type CoordinatePair = [number, number];
+type PolygonRing = CoordinatePair[];
+type PolygonRings = PolygonRing[];
+type BoundsTuple = [number, number, number, number];
+
+type PlotHoverPoint = {
+  x: number | string | null;
+  y: number | string | null;
+  z?: number | string | null;
+  customdata?: number | number[] | null;
+  surfacecolor?: number | null;
+  pointNumber?: number | number[];
+  pointNumbers?: number | number[];
+  pointIndex?: number | number[];
+  pointIndices?: number | number[];
+  i?: number;
+  j?: number;
+};
+
+type PlotHoverEvent = {
+  points?: PlotHoverPoint[];
+};
+
+type PlotComponentProps = {
+  data: PlotlyDatum[];
+  layout: PlotlyLayout;
+  config?: PlotlyConfig;
+  style?: CSSProperties;
+  onHover?: (event: PlotHoverEvent) => void;
+  onUnhover?: (event: PlotHoverEvent) => void;
+} & Record<string, unknown>;
+
+type PlotComponent = (props: PlotComponentProps) => ReactElement;
+
+const Plot = dynamic(() => import('react-plotly.js'), { ssr: false }) as unknown as PlotComponent;
+
+const plotConfig: PlotlyConfig = {
+  responsive: true,
+  displayModeBar: true,
+  displaylogo: false,
+  scrollZoom: true,
+  doubleClick: 'reset',
+};
 
 const formatNumber = (value: number | null | undefined, fractionDigits = 2): string => {
   if (value === undefined || value === null || Number.isNaN(value)) {
@@ -133,6 +179,271 @@ const firstNumeric = (...values: unknown[]): number | undefined => {
   return undefined;
 };
 
+const parseNumericValue = (value: number | string | null | undefined): number | null => {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return null;
+    }
+    const normalized = trimmed.replace(/,/g, '');
+    const parsed = Number.parseFloat(normalized);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+};
+
+const computeAxisPositions = (
+  provided: number[] | undefined,
+  count: number,
+  options: { min?: number | null; max?: number | null; resolution?: number | null },
+): number[] => {
+  if (count <= 0) {
+    return [];
+  }
+
+  const sanitizedProvided = Array.isArray(provided)
+    ? provided.map((value) => (typeof value === 'number' && Number.isFinite(value) ? value : Number.NaN))
+    : [];
+
+  if (sanitizedProvided.length === count && sanitizedProvided.every((value) => Number.isFinite(value))) {
+    return sanitizedProvided;
+  }
+
+  const { min, max, resolution } = options;
+  const hasMin = typeof min === 'number' && Number.isFinite(min);
+  const hasMax = typeof max === 'number' && Number.isFinite(max);
+  const normalizedResolution = typeof resolution === 'number' && Number.isFinite(resolution)
+    ? Math.abs(resolution)
+    : null;
+
+  if (normalizedResolution && normalizedResolution > 0) {
+    if (hasMin) {
+      return Array.from({ length: count }, (_, idx) => (min as number) + normalizedResolution * idx);
+    }
+    if (hasMax) {
+      const start = (max as number) - normalizedResolution * (count - 1);
+      return Array.from({ length: count }, (_, idx) => start + normalizedResolution * idx);
+    }
+  }
+
+  if (hasMin && hasMax) {
+    const start = min as number;
+    const end = max as number;
+    const step = count > 1 ? (end - start) / (count - 1) : 0;
+    return Array.from({ length: count }, (_, idx) => start + step * idx);
+  }
+
+  if (sanitizedProvided.length === count) {
+    const filled = [...sanitizedProvided];
+    let lastFiniteIndex = -1;
+
+    for (let i = 0; i < count; i += 1) {
+      if (Number.isFinite(filled[i])) {
+        if (lastFiniteIndex >= 0 && i - lastFiniteIndex > 1) {
+          const startValue = filled[lastFiniteIndex] as number;
+          const endValue = filled[i] as number;
+          const gap = i - lastFiniteIndex;
+          const step = (endValue - startValue) / gap;
+          for (let j = 1; j < gap; j += 1) {
+            filled[lastFiniteIndex + j] = startValue + step * j;
+          }
+        } else if (lastFiniteIndex === -1) {
+          for (let j = 0; j < i; j += 1) {
+            filled[j] = filled[i];
+          }
+        }
+        lastFiniteIndex = i;
+      }
+    }
+
+    if (lastFiniteIndex !== -1 && lastFiniteIndex < count - 1) {
+      const lastValue = filled[lastFiniteIndex] as number;
+      for (let i = lastFiniteIndex + 1; i < count; i += 1) {
+        filled[i] = lastValue;
+      }
+    }
+
+    if (filled.every((value) => Number.isFinite(value))) {
+      return filled as number[];
+    }
+  }
+
+  return Array.from({ length: count }, (_, idx) => idx);
+};
+
+const findClosestAxisIndex = (value: number | null, axis: number[]): number | null => {
+  if (value === null || !axis.length) {
+    return null;
+  }
+  let closestIndex = -1;
+  let minDelta = Number.POSITIVE_INFINITY;
+
+  for (let i = 0; i < axis.length; i += 1) {
+    const axisValue = axis[i];
+    if (!Number.isFinite(axisValue)) {
+      continue;
+    }
+    const delta = Math.abs(axisValue - value);
+    if (delta < minDelta) {
+      minDelta = delta;
+      closestIndex = i;
+    }
+  }
+
+  return closestIndex !== -1 ? closestIndex : null;
+};
+
+const getMatrixValue = (
+  matrix: (number | null)[][] | undefined,
+  rowIndex: number | null,
+  columnIndex: number | null,
+): number | null => {
+  if (!Array.isArray(matrix) || rowIndex === null || columnIndex === null) {
+    return null;
+  }
+  const row = matrix[rowIndex];
+  if (!Array.isArray(row)) {
+    return null;
+  }
+  const candidate = row[columnIndex];
+  return typeof candidate === 'number' && Number.isFinite(candidate) ? candidate : null;
+};
+
+const inferGridIndices = (
+  point: PlotHoverPoint,
+  rowCount: number,
+  columnCount: number,
+  axisX: number[],
+  axisY: number[],
+  xCandidate: number | null,
+  yCandidate: number | null,
+): { rowIndex: number | null; columnIndex: number | null } => {
+  if (rowCount <= 0 || columnCount <= 0) {
+    return { rowIndex: null, columnIndex: null };
+  }
+
+  let resolvedRow: number | null = null;
+  let resolvedColumn: number | null = null;
+
+  const considerPair = (rowCandidate: unknown, columnCandidate: unknown) => {
+    const rowIndex = typeof rowCandidate === 'number' && Number.isFinite(rowCandidate)
+      ? Math.round(rowCandidate)
+      : null;
+    const columnIndex = typeof columnCandidate === 'number' && Number.isFinite(columnCandidate)
+      ? Math.round(columnCandidate)
+      : null;
+
+    if (
+      rowIndex !== null && columnIndex !== null &&
+      rowIndex >= 0 && rowIndex < rowCount &&
+      columnIndex >= 0 && columnIndex < columnCount
+    ) {
+      resolvedRow = rowIndex;
+      resolvedColumn = columnIndex;
+      return true;
+    }
+
+    if (rowIndex !== null && rowIndex >= 0 && rowIndex < rowCount && resolvedRow === null) {
+      resolvedRow = rowIndex;
+    }
+    if (columnIndex !== null && columnIndex >= 0 && columnIndex < columnCount && resolvedColumn === null) {
+      resolvedColumn = columnIndex;
+    }
+
+    return false;
+  };
+
+  const rawPointIndex = (point as any).pointIndex ?? (point as any).pointIndices;
+  if (Array.isArray(rawPointIndex) && rawPointIndex.length >= 2) {
+    if (considerPair(rawPointIndex[0], rawPointIndex[1])) {
+      return { rowIndex: resolvedRow, columnIndex: resolvedColumn };
+    }
+    if (considerPair(rawPointIndex[1], rawPointIndex[0])) {
+      return { rowIndex: resolvedRow, columnIndex: resolvedColumn };
+    }
+  }
+
+  const rawPointNumber = (point as any).pointNumber ?? (point as any).pointNumbers;
+  if (Array.isArray(rawPointNumber) && rawPointNumber.length >= 2) {
+    if (considerPair(rawPointNumber[0], rawPointNumber[1])) {
+      return { rowIndex: resolvedRow, columnIndex: resolvedColumn };
+    }
+    if (considerPair(rawPointNumber[1], rawPointNumber[0])) {
+      return { rowIndex: resolvedRow, columnIndex: resolvedColumn };
+    }
+  } else if (typeof rawPointNumber === 'number' && Number.isFinite(rawPointNumber) && columnCount > 0) {
+    const rowIndex = Math.floor(rawPointNumber / columnCount);
+    const columnIndex = rawPointNumber % columnCount;
+    if (considerPair(rowIndex, columnIndex)) {
+      return { rowIndex: resolvedRow, columnIndex: resolvedColumn };
+    }
+  }
+
+  const iValue = typeof (point as any).i === 'number' ? (point as any).i : null;
+  const jValue = typeof (point as any).j === 'number' ? (point as any).j : null;
+  if (considerPair(jValue, iValue)) {
+    return { rowIndex: resolvedRow, columnIndex: resolvedColumn };
+  }
+
+  if (resolvedColumn === null) {
+    const candidate = findClosestAxisIndex(xCandidate, axisX);
+    if (candidate !== null && candidate >= 0 && candidate < columnCount) {
+      resolvedColumn = candidate;
+    }
+  }
+
+  if (resolvedRow === null) {
+    const candidate = findClosestAxisIndex(yCandidate, axisY);
+    if (candidate !== null && candidate >= 0 && candidate < rowCount) {
+      resolvedRow = candidate;
+    }
+  }
+
+  return {
+    rowIndex: resolvedRow,
+    columnIndex: resolvedColumn,
+  };
+};
+
+type MatrixStats = {
+  min: number;
+  max: number;
+};
+
+const computeMatrixStats = (matrix: (number | null)[][] | undefined): MatrixStats | null => {
+  if (!Array.isArray(matrix)) {
+    return null;
+  }
+
+  let min = Number.POSITIVE_INFINITY;
+  let max = Number.NEGATIVE_INFINITY;
+
+  matrix.forEach((row) => {
+    if (!Array.isArray(row)) {
+      return;
+    }
+    row.forEach((value) => {
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        if (value < min) {
+          min = value;
+        }
+        if (value > max) {
+          max = value;
+        }
+      }
+    });
+  });
+
+  if (!Number.isFinite(min) || !Number.isFinite(max)) {
+    return null;
+  }
+
+  return { min, max };
+};
+
 const debugLog = (...args: unknown[]) => {
   if (typeof window === 'undefined') {
     return;
@@ -140,7 +451,6 @@ const debugLog = (...args: unknown[]) => {
 
   const shouldLog = process.env.NODE_ENV !== 'production';
   if (shouldLog) {
-    // eslint-disable-next-line no-console
     console.log('[QuantitativeResults]', ...args);
   }
 };
@@ -174,11 +484,17 @@ interface MineBlockRow {
   blockIndex?: number;
   centroidLat?: number;
   centroidLon?: number;
-  bounds?: [number, number, number, number];
+  bounds?: BoundsTuple;
   rimElevationMeters?: number | null;
   maxDepthMeters?: number | null;
   meanDepthMeters?: number | null;
   volumeCubicMeters?: number | null;
+  imageBase64?: string | null;
+  probabilityMapBase64?: string | null;
+  tileBounds?: BoundsTuple | null;
+  tileTransform?: number[] | null;
+  tileCrs?: string | null;
+  blockPolygon?: PolygonRings | null;
 }
 
 interface QuantitativeStep {
@@ -199,11 +515,29 @@ interface QuantitativeVisualizationGridNormalized {
   unit?: string;
 }
 
+interface QuantitativeVisualizationExtent {
+  minX?: number | null;
+  maxX?: number | null;
+  minY?: number | null;
+  maxY?: number | null;
+}
+
 interface QuantitativeBlockVisualizationNormalized {
   grid?: QuantitativeVisualizationGridNormalized | null;
   stats?: Record<string, any> | null;
-  extentUTM?: Record<string, any> | null;
+  extentUTM?: QuantitativeVisualizationExtent | null;
   metadata?: Record<string, any> | null;
+}
+
+interface BlockImagerySnapshot {
+  imageBase64?: string | null;
+  probabilityBase64?: string | null;
+  tileBounds?: BoundsTuple | null;
+  blockBounds?: BoundsTuple | null;
+  tileLabel?: string | null;
+  transform?: number[] | null;
+  crs?: string | null;
+  blockPolygon?: PolygonRings | null;
 }
 
 interface QuantitativeBlockMetric {
@@ -342,6 +676,154 @@ const normalizeMatrix = (input: any): (number | null)[][] => {
   ));
 };
 
+const toFiniteNumber = (value: unknown): number | null => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+};
+
+const normalizeCoordinate = (value: unknown): CoordinatePair | null => {
+  if (!Array.isArray(value) || value.length < 2) {
+    return null;
+  }
+  const lon = toFiniteNumber(value[0]);
+  const lat = toFiniteNumber(value[1]);
+  if (lon === null || lat === null) {
+    return null;
+  }
+  return [lon, lat];
+};
+
+const normalizeBoundsTuple = (bounds: unknown): BoundsTuple | null => {
+  if (!bounds) {
+    return null;
+  }
+
+  if (Array.isArray(bounds)) {
+    if (bounds.length === 4 && bounds.every((value) => typeof value === 'number' || typeof value === 'string')) {
+      const numeric = bounds
+        .map((value) => (typeof value === 'number' ? value : Number(value)))
+        .filter((value) => Number.isFinite(value)) as number[];
+      if (numeric.length === 4) {
+        const [minLon, minLat, maxLon, maxLat] = numeric as BoundsTuple;
+        return [minLon, minLat, maxLon, maxLat];
+      }
+    }
+
+    const coordinates = bounds
+      .map((entry) => normalizeCoordinate(entry))
+      .filter((entry): entry is CoordinatePair => !!entry);
+
+    if (coordinates.length >= 2) {
+      const lons = coordinates.map((coord) => coord[0]);
+      const lats = coordinates.map((coord) => coord[1]);
+      return [Math.min(...lons), Math.min(...lats), Math.max(...lons), Math.max(...lats)];
+    }
+  }
+
+  return null;
+};
+
+const normalizePolygonRings = (geometry: any): PolygonRings | null => {
+  if (!geometry || typeof geometry !== 'object') {
+    return null;
+  }
+
+  const type = typeof geometry.type === 'string' ? geometry.type : null;
+  const coordinates = geometry.coordinates;
+  const rings: PolygonRings = [];
+
+  const ingestPolygon = (polygon: unknown) => {
+    if (!Array.isArray(polygon)) {
+      return;
+    }
+    polygon.forEach((ringCandidate) => {
+      if (!Array.isArray(ringCandidate)) {
+        return;
+      }
+      const ring = ringCandidate
+        .map((point) => normalizeCoordinate(point))
+        .filter((point): point is CoordinatePair => !!point);
+      if (ring.length >= 3) {
+        rings.push(ring);
+      }
+    });
+  };
+
+  if (type === 'Polygon') {
+    ingestPolygon(coordinates);
+  } else if (type === 'MultiPolygon') {
+    if (Array.isArray(coordinates)) {
+      coordinates.forEach(ingestPolygon);
+    }
+  } else if (Array.isArray(coordinates)) {
+    ingestPolygon(coordinates);
+  }
+
+  return rings.length ? rings : null;
+};
+
+const normalizeExtentUTM = (raw: any): QuantitativeVisualizationExtent | null => {
+  if (!raw || typeof raw !== 'object') {
+    return null;
+  }
+
+  const minX = toNumberOrNull(raw.minX ?? raw.min_x);
+  const maxX = toNumberOrNull(raw.maxX ?? raw.max_x);
+  const minY = toNumberOrNull(raw.minY ?? raw.min_y);
+  const maxY = toNumberOrNull(raw.maxY ?? raw.max_y);
+
+  if (minX === null && maxX === null && minY === null && maxY === null) {
+    return null;
+  }
+
+  return {
+    minX,
+    maxX,
+    minY,
+    maxY,
+  };
+};
+
+const boundsFromPolygon = (polygon: PolygonRings | null): BoundsTuple | null => {
+  if (!polygon || !polygon.length) {
+    return null;
+  }
+  const points = polygon.flat();
+  if (!points.length) {
+    return null;
+  }
+  const lons = points.map((coord) => coord[0]);
+  const lats = points.map((coord) => coord[1]);
+  return [Math.min(...lons), Math.min(...lats), Math.max(...lons), Math.max(...lats)];
+};
+
+const parseGeometryCandidate = (candidate: unknown): any | null => {
+  if (!candidate) {
+    return null;
+  }
+
+  if (typeof candidate === 'string') {
+    try {
+      return JSON.parse(candidate);
+    } catch (error) {
+      debugLog('Failed to parse geometry JSON', error);
+      return null;
+    }
+  }
+
+  if (typeof candidate === 'object') {
+    return candidate;
+  }
+
+  return null;
+};
+
 const normalizeBlockVisualization = (raw: any): QuantitativeBlockVisualizationNormalized | null => {
   if (!raw || typeof raw !== 'object') {
     return null;
@@ -364,7 +846,7 @@ const normalizeBlockVisualization = (raw: any): QuantitativeBlockVisualizationNo
   return {
     grid,
     stats: raw.stats ?? null,
-    extentUTM: raw.extentUTM ?? null,
+    extentUTM: normalizeExtentUTM(raw.extentUTM),
     metadata: raw.metadata ?? null,
   };
 };
@@ -493,17 +975,65 @@ const StepStatusIcon = ({ status }: { status: QuantitativeStep['status'] }) => {
   return <Pending sx={{ color: '#facc15' }} fontSize="small" />;
 };
 
-const ContourPlot = memo(({ grid }: { grid: QuantitativeVisualizationGridNormalized }) => {
-  const hasData = grid?.elevation?.length && grid?.elevation[0]?.length;
-  const data = useMemo(() => {
+const ContourPlot = memo(({
+  grid,
+  extent,
+}: {
+  grid: QuantitativeVisualizationGridNormalized;
+  extent?: QuantitativeVisualizationExtent | null;
+}) => {
+  const rowCount = Array.isArray(grid?.elevation) ? grid.elevation.length : 0;
+  const columnCount = rowCount > 0 && Array.isArray(grid.elevation?.[0]) ? grid.elevation[0]?.length ?? 0 : 0;
+  const hasData = rowCount > 0 && columnCount > 0;
+
+  const minX = extent?.minX ?? null;
+  const maxX = extent?.maxX ?? null;
+  const minY = extent?.minY ?? null;
+  const maxY = extent?.maxY ?? null;
+
+  const axisX = useMemo(
+    () => computeAxisPositions(grid.x, columnCount, { min: minX, max: maxX, resolution: grid.resolutionX ?? null }),
+    [columnCount, grid.resolutionX, grid.x, maxX, minX],
+  );
+
+  const axisY = useMemo(
+    () => computeAxisPositions(grid.y, rowCount, { min: minY, max: maxY, resolution: grid.resolutionY ?? null }),
+    [grid.resolutionY, grid.y, maxY, minY, rowCount],
+  );
+
+  const [hoverInfo, setHoverInfo] = useState<{ x: number; y: number; z: number | null } | null>(null);
+  const plotRef = useRef<any>(null);
+  const defaultHoverInfo = useMemo(() => {
+    if (!hasData) {
+      return null;
+    }
+    const rowIndex = Math.max(0, Math.min(rowCount - 1, Math.floor(rowCount / 2)));
+    const columnIndex = Math.max(0, Math.min(columnCount - 1, Math.floor(columnCount / 2)));
+
+    const xCandidate = axisX[columnIndex];
+    const yCandidate = axisY[rowIndex];
+    const elevationCandidate = getMatrixValue(grid.elevation, rowIndex, columnIndex);
+
+    if (!Number.isFinite(xCandidate) || !Number.isFinite(yCandidate)) {
+      return null;
+    }
+
+    return {
+      x: xCandidate as number,
+      y: yCandidate as number,
+      z: typeof elevationCandidate === 'number' && Number.isFinite(elevationCandidate) ? elevationCandidate : null,
+    } as const;
+  }, [axisX, axisY, columnCount, grid.elevation, hasData, rowCount]);
+
+  const data = useMemo<PlotlyDatum[]>(() => {
     if (!hasData) {
       return [];
     }
     return [
       {
         type: 'contour',
-        x: grid.x,
-        y: grid.y,
+        x: axisX,
+        y: axisY,
         z: grid.elevation,
         colorscale: 'Portland',
         reversescale: false,
@@ -518,7 +1048,12 @@ const ContourPlot = memo(({ grid }: { grid: QuantitativeVisualizationGridNormali
             color: '#0f172a',
           },
         },
-        hovertemplate: 'Easting: %{x:.1f} m<br>Northing: %{y:.1f} m<br>Elevation: %{z:.2f} m<extra></extra>',
+        hovertemplate: 'E: %{x:.2f} m<br>N: %{y:.2f} m<br>Elev: %{z:.2f} m<extra></extra>',
+        hoverlabel: {
+          bgcolor: 'rgba(0,0,0,0)',
+          bordercolor: 'rgba(0,0,0,0)',
+          font: { color: 'rgba(0,0,0,0)', size: 1, family: 'Inter, sans-serif' },
+        },
         colorbar: {
           title: 'Elevation (m)',
           tickfont: { color: '#e2e8f0' },
@@ -526,9 +1061,83 @@ const ContourPlot = memo(({ grid }: { grid: QuantitativeVisualizationGridNormali
         },
       },
     ];
-  }, [grid, hasData]);
+  }, [axisX, axisY, grid.elevation, hasData]);
 
-  const layout = useMemo(
+  const plotKey = useMemo(() => (
+    `${rowCount}x${columnCount}-${axisX[0] ?? 'n'}-${axisX[axisX.length - 1] ?? 'n'}-${axisY[0] ?? 'n'}-${axisY[axisY.length - 1] ?? 'n'}`
+  ), [axisX, axisY, columnCount, rowCount]);
+
+  const handleHover = useCallback((event: PlotHoverEvent) => {
+    const point = event.points?.[0];
+    if (!point) {
+      return;
+    }
+
+    const xCandidate = parseNumericValue(point.x as number | string | null | undefined);
+    const yCandidate = parseNumericValue(point.y as number | string | null | undefined);
+    let elevationCandidate = parseNumericValue(point.z as number | string | null | undefined);
+
+    const { rowIndex, columnIndex } = inferGridIndices(point, rowCount, columnCount, axisX, axisY, xCandidate, yCandidate);
+
+    let xValue: number | null = xCandidate;
+    if ((typeof xValue !== 'number' || !Number.isFinite(xValue)) && columnIndex !== null && columnIndex < axisX.length) {
+      const candidate = axisX[columnIndex];
+      if (Number.isFinite(candidate)) {
+        xValue = candidate;
+      }
+    }
+
+    let yValue: number | null = yCandidate;
+    if ((typeof yValue !== 'number' || !Number.isFinite(yValue)) && rowIndex !== null && rowIndex < axisY.length) {
+      const candidate = axisY[rowIndex];
+      if (Number.isFinite(candidate)) {
+        yValue = candidate;
+      }
+    }
+
+    if (typeof xValue !== 'number' || !Number.isFinite(xValue) || typeof yValue !== 'number' || !Number.isFinite(yValue)) {
+      return;
+    }
+
+    if ((typeof elevationCandidate !== 'number' || !Number.isFinite(elevationCandidate)) && rowIndex !== null && columnIndex !== null) {
+      elevationCandidate = getMatrixValue(grid.elevation, rowIndex, columnIndex);
+    }
+
+    const next = {
+      x: xValue,
+      y: yValue,
+      z: typeof elevationCandidate === 'number' && Number.isFinite(elevationCandidate) ? elevationCandidate : null,
+    } as const;
+
+    setHoverInfo(next);
+  }, [axisX, axisY, columnCount, grid.elevation, rowCount]);
+
+  useEffect(() => {
+    const graphDiv = plotRef.current;
+    if (!graphDiv || typeof graphDiv.on !== 'function') {
+      return undefined;
+    }
+
+    const hoverListener = (event: PlotHoverEvent) => {
+      handleHover(event);
+    };
+
+    graphDiv.on('plotly_hover', hoverListener);
+
+    const off = typeof graphDiv.removeListener === 'function'
+      ? (eventName: string, listener: (event: PlotHoverEvent) => void) => graphDiv.removeListener(eventName, listener)
+      : typeof graphDiv.off === 'function'
+        ? (eventName: string, listener: (event: PlotHoverEvent) => void) => graphDiv.off(eventName, listener)
+        : null;
+
+    return () => {
+      if (off) {
+        off('plotly_hover', hoverListener);
+      }
+    };
+  }, [handleHover]);
+
+  const layout = useMemo<PlotlyLayout>(
     () => ({
       autosize: true,
       height: 280,
@@ -536,6 +1145,8 @@ const ContourPlot = memo(({ grid }: { grid: QuantitativeVisualizationGridNormali
       paper_bgcolor: 'rgba(0,0,0,0)',
       plot_bgcolor: 'rgba(0,0,0,0)',
       font: { color: '#e2e8f0', family: 'Inter, sans-serif' },
+      dragmode: 'pan',
+      hovermode: 'closest',
       xaxis: {
         title: 'Easting (m)',
         color: '#e2e8f0',
@@ -563,47 +1174,282 @@ const ContourPlot = memo(({ grid }: { grid: QuantitativeVisualizationGridNormali
     );
   }
 
+  const displayInfo = hoverInfo ?? defaultHoverInfo ?? { x: null, y: null, z: null };
+
+  const infoItems = [
+    { key: 'easting', label: 'E', value: displayInfo.x, unit: 'm', decimals: 2 },
+    { key: 'northing', label: 'N', value: displayInfo.y, unit: 'm', decimals: 2 },
+    { key: 'elevation', label: 'Elev', value: displayInfo.z, unit: 'm', decimals: 2 },
+  ] as const;
+
   return (
-    <Plot
-      data={data as any}
-      layout={layout as any}
-      config={plotConfig}
-      style={{ width: '100%', height: '280px' }}
-    />
+    <Box sx={{ width: '100%' }}>
+      <Box sx={{ position: 'relative', width: '100%', height: 280 }}>
+        <Plot
+          key={plotKey}
+          ref={plotRef}
+          data={data}
+          layout={layout}
+          config={plotConfig}
+          style={{ width: '100%', height: '100%' }}
+          onHover={handleHover}
+        />
+      </Box>
+      <Stack
+        direction="row"
+        spacing={2.5}
+        sx={{
+          mt: 1,
+          px: 1.75,
+          py: 1,
+          borderRadius: 1.5,
+          background: 'rgba(15, 23, 42, 0.55)',
+          border: '1px solid rgba(148, 163, 184, 0.25)',
+          backdropFilter: 'blur(6px)',
+          color: '#f8fafc',
+          flexWrap: 'wrap',
+          rowGap: 1.25,
+        }}
+      >
+        {infoItems.map((item) => (
+          <Stack
+            key={item.key}
+            direction="row"
+            spacing={1}
+            alignItems="center"
+            sx={{ minWidth: 120 }}
+          >
+            <Typography sx={{ fontSize: '0.75rem', letterSpacing: 1.5, textTransform: 'uppercase', color: '#94a3b8' }}>
+              {item.label}
+            </Typography>
+            <Typography sx={{ fontSize: '0.95rem', fontWeight: 500 }}>
+              {formatNumber(item.value, item.decimals)} {item.unit}
+            </Typography>
+          </Stack>
+        ))}
+      </Stack>
+    </Box>
   );
 });
 ContourPlot.displayName = 'ContourPlot';
 
-const SurfacePlot = memo(({ grid }: { grid: QuantitativeVisualizationGridNormalized }) => {
-  const hasData = grid?.elevation?.length && grid?.elevation[0]?.length;
-  const depthValues = grid?.depth && grid.depth.length ? grid.depth : undefined;
+const SurfacePlot = memo(({
+  grid,
+  extent,
+}: {
+  grid: QuantitativeVisualizationGridNormalized;
+  extent?: QuantitativeVisualizationExtent | null;
+}) => {
+  const rowCount = Array.isArray(grid?.elevation) ? grid.elevation.length : 0;
+  const columnCount = rowCount > 0 && Array.isArray(grid.elevation?.[0]) ? grid.elevation[0]?.length ?? 0 : 0;
+  const hasData = rowCount > 0 && columnCount > 0;
 
-  const data = useMemo(() => {
+  const depthMatrix = Array.isArray(grid?.depth) && grid.depth.length ? grid.depth : undefined;
+
+  const minX = extent?.minX ?? null;
+  const maxX = extent?.maxX ?? null;
+  const minY = extent?.minY ?? null;
+  const maxY = extent?.maxY ?? null;
+
+  const axisX = useMemo(
+    () => computeAxisPositions(grid.x, columnCount, { min: minX, max: maxX, resolution: grid.resolutionX ?? null }),
+    [columnCount, grid.resolutionX, grid.x, maxX, minX],
+  );
+
+  const axisY = useMemo(
+    () => computeAxisPositions(grid.y, rowCount, { min: minY, max: maxY, resolution: grid.resolutionY ?? null }),
+    [grid.resolutionY, grid.y, maxY, minY, rowCount],
+  );
+
+  const elevationStats = useMemo(() => computeMatrixStats(grid.elevation), [grid.elevation]);
+  const colorScale: PlotlyDatum['colorscale'] = 'Portland';
+  const colorRange = elevationStats;
+
+  const [hoverInfo, setHoverInfo] = useState<{ x: number; y: number; elevation: number | null; depth: number | null } | null>(null);
+  const plotRef = useRef<any>(null);
+  const defaultHoverInfo = useMemo(() => {
+    if (!hasData) {
+      return null;
+    }
+
+    const rowIndex = Math.max(0, Math.min(rowCount - 1, Math.floor(rowCount / 2)));
+    const columnIndex = Math.max(0, Math.min(columnCount - 1, Math.floor(columnCount / 2)));
+
+    const xCandidate = axisX[columnIndex];
+    const yCandidate = axisY[rowIndex];
+
+    if (!Number.isFinite(xCandidate) || !Number.isFinite(yCandidate)) {
+      return null;
+    }
+
+    const elevationCandidate = getMatrixValue(grid.elevation, rowIndex, columnIndex);
+    let depthCandidate = getMatrixValue(depthMatrix, rowIndex, columnIndex);
+
+    if ((depthCandidate === null || !Number.isFinite(depthCandidate)) && typeof grid.rimElevation === 'number' && Number.isFinite(grid.rimElevation) && typeof elevationCandidate === 'number' && Number.isFinite(elevationCandidate)) {
+      const derivedDepth = grid.rimElevation - elevationCandidate;
+      if (Number.isFinite(derivedDepth)) {
+        depthCandidate = derivedDepth < 0 ? 0 : derivedDepth;
+      }
+    }
+
+    const normalizedDepth = typeof depthCandidate === 'number' && Number.isFinite(depthCandidate)
+      ? depthCandidate
+      : null;
+
+    return {
+      x: xCandidate as number,
+      y: yCandidate as number,
+      elevation: typeof elevationCandidate === 'number' && Number.isFinite(elevationCandidate) ? elevationCandidate : null,
+      depth: normalizedDepth,
+    } as const;
+  }, [axisX, axisY, columnCount, depthMatrix, grid.elevation, grid.rimElevation, hasData, rowCount]);
+
+  const data = useMemo<PlotlyDatum[]>(() => {
     if (!hasData) {
       return [];
     }
+  const colorMatrix = grid.elevation;
     return [
       {
         type: 'surface',
-        x: grid.x,
-        y: grid.y,
+        x: axisX,
+        y: axisY,
         z: grid.elevation,
-        surfacecolor: depthValues || grid.elevation,
-        colorscale: 'Viridis',
-        reversescale: true,
+        surfacecolor: colorMatrix,
+        colorscale: colorScale,
+        reversescale: false,
         showscale: true,
         colorbar: {
-          title: depthValues ? 'Depth (m)' : 'Elevation (m)',
+          title: 'Elevation (m)',
           tickfont: { color: '#e2e8f0' },
           titlefont: { color: '#e2e8f0' },
         },
         opacity: 0.95,
-        hovertemplate: 'Easting: %{x:.1f} m<br>Northing: %{y:.1f} m<br>Elevation: %{z:.2f} m<extra></extra>',
+        hovertemplate: depthMatrix
+          ? 'E: %{x:.2f} m<br>N: %{y:.2f} m<br>Elev: %{z:.2f} m<br>Depth: %{customdata:.2f} m<extra></extra>'
+          : 'E: %{x:.2f} m<br>N: %{y:.2f} m<br>Elev: %{z:.2f} m<extra></extra>',
+        hoverlabel: {
+          bgcolor: 'rgba(0,0,0,0)',
+          bordercolor: 'rgba(0,0,0,0)',
+          font: { color: 'rgba(0,0,0,0)', size: 1, family: 'Inter, sans-serif' },
+        },
+        customdata: depthMatrix,
+        cmin: colorRange?.min ?? undefined,
+        cmax: colorRange?.max ?? undefined,
       },
     ];
-  }, [grid, hasData, depthValues]);
+  }, [axisX, axisY, colorRange?.max, colorRange?.min, colorScale, depthMatrix, grid.elevation, hasData]);
 
-  const layout = useMemo(
+  const plotKey = useMemo(() => (
+    `${rowCount}x${columnCount}-${axisX[0] ?? 'n'}-${axisX[axisX.length - 1] ?? 'n'}-${axisY[0] ?? 'n'}-${axisY[axisY.length - 1] ?? 'n'}-${colorRange?.min ?? 'n'}-${colorRange?.max ?? 'n'}`
+  ), [axisX, axisY, colorRange?.max, colorRange?.min, columnCount, rowCount]);
+
+  const handleHover = useCallback((event: PlotHoverEvent) => {
+    const point = event.points?.[0];
+    if (!point) {
+      return;
+    }
+
+    const xCandidate = parseNumericValue(point.x as number | string | null | undefined);
+    const yCandidate = parseNumericValue(point.y as number | string | null | undefined);
+    let elevationCandidate = parseNumericValue(point.z as number | string | null | undefined);
+
+    const { rowIndex, columnIndex } = inferGridIndices(point, rowCount, columnCount, axisX, axisY, xCandidate, yCandidate);
+
+    let xValue: number | null = xCandidate;
+    if ((typeof xValue !== 'number' || !Number.isFinite(xValue)) && columnIndex !== null && columnIndex < axisX.length) {
+      const candidate = axisX[columnIndex];
+      if (Number.isFinite(candidate)) {
+        xValue = candidate;
+      }
+    }
+
+    let yValue: number | null = yCandidate;
+    if ((typeof yValue !== 'number' || !Number.isFinite(yValue)) && rowIndex !== null && rowIndex < axisY.length) {
+      const candidate = axisY[rowIndex];
+      if (Number.isFinite(candidate)) {
+        yValue = candidate;
+      }
+    }
+
+    if (typeof xValue !== 'number' || !Number.isFinite(xValue) || typeof yValue !== 'number' || !Number.isFinite(yValue)) {
+      return;
+    }
+
+    if ((typeof elevationCandidate !== 'number' || !Number.isFinite(elevationCandidate)) && rowIndex !== null && columnIndex !== null) {
+      elevationCandidate = getMatrixValue(grid.elevation, rowIndex, columnIndex);
+    }
+
+    let depthCandidate: number | null = getMatrixValue(depthMatrix, rowIndex, columnIndex);
+
+    if (depthCandidate === null) {
+      const rawDepth = Array.isArray(point.customdata)
+        ? point.customdata[point.customdata.length - 1]
+        : point.customdata ?? point.surfacecolor;
+      const parsedDepth = parseNumericValue(rawDepth as number | string | null | undefined);
+      if (parsedDepth !== null) {
+        depthCandidate = parsedDepth;
+      } else if (typeof point.surfacecolor === 'number' && Number.isFinite(point.surfacecolor)) {
+        depthCandidate = point.surfacecolor;
+      }
+    }
+
+    if ((depthCandidate === null || !Number.isFinite(depthCandidate)) && typeof grid.rimElevation === 'number' && Number.isFinite(grid.rimElevation) && typeof elevationCandidate === 'number' && Number.isFinite(elevationCandidate)) {
+      const derivedDepth = grid.rimElevation - elevationCandidate;
+      if (Number.isFinite(derivedDepth)) {
+        depthCandidate = derivedDepth < 0 ? 0 : derivedDepth;
+      }
+    }
+
+    const normalizedDepth = typeof depthCandidate === 'number' && Number.isFinite(depthCandidate)
+      ? depthCandidate
+      : null;
+
+    const next = {
+      x: xValue,
+      y: yValue,
+      elevation: typeof elevationCandidate === 'number' && Number.isFinite(elevationCandidate) ? elevationCandidate : null,
+      depth: normalizedDepth,
+    } as const;
+
+    setHoverInfo(next);
+  }, [axisX, axisY, columnCount, depthMatrix, grid.elevation, grid.rimElevation, rowCount]);
+
+  useEffect(() => {
+    const graphDiv = plotRef.current;
+    if (!graphDiv || typeof graphDiv.on !== 'function') {
+      return undefined;
+    }
+
+    const hoverListener = (event: PlotHoverEvent) => {
+      handleHover(event);
+    };
+
+    graphDiv.on('plotly_hover', hoverListener);
+
+    const off = typeof graphDiv.removeListener === 'function'
+      ? (eventName: string, listener: (event: PlotHoverEvent) => void) => graphDiv.removeListener(eventName, listener)
+      : typeof graphDiv.off === 'function'
+        ? (eventName: string, listener: (event: PlotHoverEvent) => void) => graphDiv.off(eventName, listener)
+        : null;
+
+    return () => {
+      if (off) {
+        off('plotly_hover', hoverListener);
+      }
+    };
+  }, [handleHover]);
+
+  const surfacePlotConfig = useMemo<PlotlyConfig>(
+    () => ({
+      ...plotConfig,
+      modeBarButtonsToAdd: ['orbitRotation', 'hoverClosest3d', 'resetCameraLastSave3d'],
+      modeBarButtonsToRemove: ['resetCameraDefault3d'],
+    }),
+    [],
+  );
+
+  const layout = useMemo<PlotlyLayout>(
     () => ({
       autosize: true,
       height: 280,
@@ -625,18 +1471,24 @@ const SurfacePlot = memo(({ grid }: { grid: QuantitativeVisualizationGridNormali
           zerolinecolor: 'rgba(148, 163, 184, 0.45)',
         },
         zaxis: {
-          title: depthValues ? 'Elevation (m)' : 'Elevation (m)',
+          title: 'Elevation (m)',
           color: '#e2e8f0',
           gridcolor: 'rgba(148, 163, 184, 0.35)',
           zerolinecolor: 'rgba(148, 163, 184, 0.45)',
         },
         camera: {
-          eye: { x: 1.6, y: -1.6, z: 1.15 },
+          eye: { x: 1.35, y: 1.45, z: 1.25 },
+          up: { x: 0, y: 0, z: 1 },
+          center: { x: 0, y: 0, z: 0 },
         },
         aspectmode: 'data',
+        aspectratio: { x: 1, y: 1, z: 0.5 },
+        dragmode: 'orbit',
       },
+      hovermode: 'closest',
+      uirevision: 'surface-view',
     }),
-    [depthValues],
+    [],
   );
 
   if (!hasData) {
@@ -649,16 +1501,207 @@ const SurfacePlot = memo(({ grid }: { grid: QuantitativeVisualizationGridNormali
     );
   }
 
+  const displayInfo = hoverInfo ?? defaultHoverInfo ?? { x: null, y: null, elevation: null, depth: null };
+
+  const infoItems = [
+    { key: 'easting', label: 'E', value: displayInfo.x, unit: 'm', decimals: 2 },
+    { key: 'northing', label: 'N', value: displayInfo.y, unit: 'm', decimals: 2 },
+    { key: 'elevation', label: 'Elev', value: displayInfo.elevation, unit: 'm', decimals: 2 },
+    { key: 'depth', label: 'Depth', value: displayInfo.depth, unit: 'm', decimals: 2 },
+  ] as const;
+
   return (
-    <Plot
-      data={data as any}
-      layout={layout as any}
-      config={{ ...plotConfig, displayModeBar: false }}
-      style={{ width: '100%', height: '280px' }}
-    />
+    <Box sx={{ width: '100%' }}>
+      <Box sx={{ position: 'relative', width: '100%', height: 280 }}>
+        <Plot
+          key={plotKey}
+          ref={plotRef}
+          data={data}
+          layout={layout}
+          config={surfacePlotConfig}
+          style={{ width: '100%', height: '100%' }}
+          onHover={handleHover}
+        />
+      </Box>
+      <Stack
+        direction="row"
+        spacing={2.5}
+        sx={{
+          mt: 1,
+          px: 1.75,
+          py: 1,
+          borderRadius: 1.5,
+          background: 'rgba(15, 23, 42, 0.55)',
+          border: '1px solid rgba(148, 163, 184, 0.25)',
+          backdropFilter: 'blur(6px)',
+          color: '#f8fafc',
+          flexWrap: 'wrap',
+          rowGap: 1.25,
+        }}
+      >
+        {infoItems.map((item) => (
+          <Stack
+            key={item.key}
+            direction="row"
+            spacing={1}
+            alignItems="center"
+            sx={{ minWidth: 120 }}
+          >
+            <Typography sx={{ fontSize: '0.75rem', letterSpacing: 1.5, textTransform: 'uppercase', color: '#94a3b8' }}>
+              {item.label}
+            </Typography>
+            <Typography sx={{ fontSize: '0.95rem', fontWeight: 500 }}>
+              {formatNumber(item.value, item.decimals)} {item.unit}
+            </Typography>
+          </Stack>
+        ))}
+      </Stack>
+    </Box>
   );
 });
 SurfacePlot.displayName = 'SurfacePlot';
+
+const BlockMosaicPreview = memo(({ imagery, label }: { imagery: BlockImagerySnapshot | null; label: string }) => {
+  const hasRgb = !!imagery?.imageBase64;
+  const { tileBounds, blockBounds, blockPolygon } = imagery ?? {};
+
+  const clamp = (value: number, min = 0, max = 100) => Math.max(min, Math.min(max, value));
+
+  const polygonPaths = useMemo(() => {
+    if (!tileBounds || !blockPolygon || !blockPolygon.length) {
+      return null;
+    }
+
+    const [tileMinLon, tileMinLat, tileMaxLon, tileMaxLat] = tileBounds;
+    const lonSpan = tileMaxLon - tileMinLon;
+    const latSpan = tileMaxLat - tileMinLat;
+
+    if (lonSpan <= 0 || latSpan <= 0) {
+      return null;
+    }
+
+    const toPoint = (coord: CoordinatePair): string | null => {
+      const [lon, lat] = coord;
+      if (!Number.isFinite(lon) || !Number.isFinite(lat)) {
+        return null;
+      }
+      const relX = ((lon - tileMinLon) / lonSpan) * 100;
+      const relY = ((tileMaxLat - lat) / latSpan) * 100;
+      if (!Number.isFinite(relX) || !Number.isFinite(relY)) {
+        return null;
+      }
+  return `${clamp(relX).toFixed(4)},${clamp(relY).toFixed(4)}`;
+    };
+
+    const rings = blockPolygon
+      .map((ring) => {
+        const path = ring
+          .map((point) => toPoint(point))
+          .filter((point): point is string => !!point);
+        return path.length >= 3 ? path.join(' ') : null;
+      })
+      .filter((ring): ring is string => !!ring);
+
+    return rings.length ? rings : null;
+  }, [tileBounds, blockPolygon]);
+
+  let overlaySx: Record<string, string | number> | null = null;
+
+  if (!polygonPaths && tileBounds && blockBounds) {
+    const [tileMinLon, tileMinLat, tileMaxLon, tileMaxLat] = tileBounds;
+    const [blockMinLon, blockMinLat, blockMaxLon, blockMaxLat] = blockBounds;
+    const lonSpan = tileMaxLon - tileMinLon;
+    const latSpan = tileMaxLat - tileMinLat;
+
+    if (lonSpan > 0 && latSpan > 0) {
+      const leftPct = ((blockMinLon - tileMinLon) / lonSpan) * 100;
+      const widthPct = ((blockMaxLon - blockMinLon) / lonSpan) * 100;
+      const topPct = ((tileMaxLat - blockMaxLat) / latSpan) * 100;
+      const heightPct = ((blockMaxLat - blockMinLat) / latSpan) * 100;
+
+      overlaySx = {
+        position: 'absolute',
+        left: `${clamp(leftPct)}%`,
+        top: `${clamp(topPct)}%`,
+        width: `${clamp(widthPct)}%`,
+        height: `${clamp(heightPct)}%`,
+        border: '2px solid rgba(236, 201, 75, 0.95)',
+        boxShadow: '0 0 12px rgba(236, 201, 75, 0.45)',
+        borderRadius: 6,
+        pointerEvents: 'none',
+      };
+    }
+  }
+
+  const imageSrc = hasRgb ? imagery?.imageBase64 ?? null : null;
+
+  return (
+    <Box
+      sx={{
+        position: 'relative',
+        width: '100%',
+        paddingTop: '100%',
+        borderRadius: 1.5,
+        overflow: 'hidden',
+        border: imageSrc ? '1px solid rgba(148, 163, 184, 0.35)' : '1px dashed rgba(148, 163, 184, 0.35)',
+        background: 'rgba(15, 23, 42, 0.35)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: 'rgba(148, 163, 184, 0.75)',
+        fontSize: '0.75rem',
+        textAlign: 'center',
+      }}
+    >
+      {imageSrc ? (
+        <>
+          <Box
+            component="img"
+            alt={`${label} satellite preview`}
+            src={`data:image/png;base64,${imageSrc}`}
+            sx={{
+              position: 'absolute',
+              inset: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              filter: 'saturate(1.05) contrast(1.05)',
+            }}
+          />
+          {polygonPaths && (
+            <Box
+              component="svg"
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
+              sx={{
+                position: 'absolute',
+                inset: 0,
+                width: '100%',
+                height: '100%',
+                pointerEvents: 'none',
+              }}
+            >
+              {polygonPaths.map((points, index) => (
+                <polygon
+                  key={`poly-${index}`}
+                  points={points}
+                  fill="rgba(236, 201, 75, 0.18)"
+                  stroke="rgba(236, 201, 75, 0.92)"
+                  strokeWidth={1.6}
+                  vectorEffect="non-scaling-stroke"
+                />
+              ))}
+            </Box>
+          )}
+        </>
+      ) : (
+        'Satellite preview unavailable'
+      )}
+      {!polygonPaths && overlaySx && <Box sx={overlaySx} />}
+    </Box>
+  );
+});
+BlockMosaicPreview.displayName = 'BlockMosaicPreview';
 
 const QuantitativeResultsPage = () => {
   const router = useRouter();
@@ -1179,6 +2222,73 @@ const QuantitativeResultsPage = () => {
   }, [results, quantitativeResult?.summary]);
   const confidenceMetrics = useMemo(() => deriveConfidenceMetrics(results), [results]);
 
+  const blockImageryMap = useMemo(() => {
+    const map = new Map<string, BlockImagerySnapshot>();
+    if (!results) {
+      return map;
+    }
+
+    const normalizeTransform = (input: unknown): number[] | null => {
+      if (!Array.isArray(input)) {
+        return null;
+      }
+      const asNumbers = input
+        .slice(0, 6)
+        .map((value) => (typeof value === 'number' ? value : Number(value)))
+        .filter((value) => Number.isFinite(value)) as number[];
+      return asNumbers.length === 6 ? asNumbers : null;
+    };
+
+    const tiles = Array.isArray(results.tiles) ? results.tiles : [];
+    tiles.forEach((tile: any) => {
+      const imageBase64 = typeof tile?.image_base64 === 'string' ? tile.image_base64 : null;
+      const probabilityBase64 = typeof tile?.probability_map_base64 === 'string' ? tile.probability_map_base64 : null;
+      const tileBounds = normalizeBoundsTuple(tile?.bounds);
+      const transform = normalizeTransform(tile?.transform ?? tile?.affine ?? null);
+      const crs = typeof tile?.crs === 'string' ? tile.crs : null;
+      const blocks = Array.isArray(tile?.mine_blocks) ? tile.mine_blocks : [];
+
+      blocks.forEach((block: any) => {
+        const props = block?.properties || {};
+        const geometry = parseGeometryCandidate(block?.geometry ?? props.geometry ?? props.geom ?? null);
+        const polygon = normalizePolygonRings(geometry);
+        const blockBounds = normalizeBoundsTuple(props.bbox) ?? boundsFromPolygon(polygon);
+        const keyCandidates = [
+          props.persistent_id,
+          props.persistentId,
+          props.block_id,
+          props.id,
+          props.name,
+        ]
+          .map((value) => (typeof value === 'string' ? value : value != null ? String(value) : null))
+          .filter((value): value is string => !!value);
+
+        if (!keyCandidates.length) {
+          return;
+        }
+
+        keyCandidates.forEach((key) => {
+          if (!key || map.has(key)) {
+            return;
+          }
+
+          map.set(key, {
+            imageBase64,
+            probabilityBase64,
+            tileBounds,
+            blockBounds,
+            tileLabel: tile?.tile_label ?? tile?.tile_id ?? null,
+            transform,
+            crs,
+            blockPolygon: polygon,
+          });
+        });
+      });
+    });
+
+    return map;
+  }, [results]);
+
   const quantitativeMetricMap = useMemo(() => {
     const map = new Map<string, QuantitativeBlockMetric>();
     quantitativeResult?.blocks.forEach((block) => {
@@ -1192,12 +2302,46 @@ const QuantitativeResultsPage = () => {
   }, [quantitativeResult]);
 
   const mineBlockRows: MineBlockRow[] = useMemo(() => {
+    const normalizeTransformLocal = (input: unknown): number[] | null => {
+      if (!Array.isArray(input)) {
+        return null;
+      }
+      const asNumbers = input
+        .slice(0, 6)
+        .map((value) => (typeof value === 'number' ? value : Number(value)))
+        .filter((value) => Number.isFinite(value)) as number[];
+      return asNumbers.length === 6 ? asNumbers : null;
+    };
+
+    const resolveImagery = (candidates: Array<string | number | null | undefined>): BlockImagerySnapshot | null => {
+      for (const candidate of candidates) {
+        if (candidate === null || candidate === undefined) {
+          continue;
+        }
+        const key = typeof candidate === 'string' ? candidate : String(candidate);
+        if (!key) {
+          continue;
+        }
+        const snapshot = blockImageryMap.get(key);
+        if (snapshot) {
+          return snapshot;
+        }
+      }
+      return null;
+    };
+
     const fallbackQuantitativeBlocks = (quantitativeResult?.blocks ?? []).map((block, index) => {
       const areaHa = typeof block.areaHectares === 'number'
         ? block.areaHectares
         : typeof block.areaSquareMeters === 'number'
           ? block.areaSquareMeters / 10_000
           : 0;
+
+      const imagery = resolveImagery([
+        block.persistentId,
+        block.blockId,
+        block.blockLabel,
+      ]);
 
       return {
         id: block.blockId ?? `quant-block-${index}`,
@@ -1211,6 +2355,13 @@ const QuantitativeResultsPage = () => {
         maxDepthMeters: block.maxDepthMeters ?? null,
         meanDepthMeters: block.meanDepthMeters ?? null,
         volumeCubicMeters: block.volumeCubicMeters ?? null,
+        imageBase64: imagery?.imageBase64 ?? null,
+        probabilityMapBase64: imagery?.probabilityBase64 ?? null,
+        bounds: imagery?.blockBounds ?? undefined,
+        tileBounds: imagery?.tileBounds ?? null,
+        tileTransform: imagery?.transform ?? null,
+        tileCrs: imagery?.crs ?? null,
+        blockPolygon: imagery?.blockPolygon ?? null,
       } satisfies MineBlockRow;
     });
 
@@ -1229,14 +2380,19 @@ const QuantitativeResultsPage = () => {
       const tileId = props.tile_id !== undefined && props.tile_id !== null
         ? String(props.tile_id)
         : 'mosaic';
+      const geometry = parseGeometryCandidate(feature?.geometry ?? props.geometry ?? null);
+      const polygon = normalizePolygonRings(geometry);
       const centroidArray = Array.isArray(props.label_position) && props.label_position.length >= 2
         ? props.label_position.map((value: any) => (typeof value === 'number' ? value : Number(value)))
         : undefined;
-      const boundsArray = Array.isArray(props.bbox) && props.bbox.length === 4
-        ? (props.bbox as any[]).map((value) => (typeof value === 'number' ? value : Number(value))) as [number, number, number, number]
-        : undefined;
+      const boundsArray = normalizeBoundsTuple(props.bbox) ?? boundsFromPolygon(polygon) ?? undefined;
 
       const metrics = quantitativeMetricMap.get(props.persistent_id || blockId) || quantitativeMetricMap.get(name);
+      const imagery = resolveImagery([
+        props.persistent_id,
+        blockId,
+        name,
+      ]);
 
       return {
         id: `merged-${blockId}`,
@@ -1255,6 +2411,12 @@ const QuantitativeResultsPage = () => {
         maxDepthMeters: metrics?.maxDepthMeters ?? null,
         meanDepthMeters: metrics?.meanDepthMeters ?? null,
         volumeCubicMeters: metrics?.volumeCubicMeters ?? null,
+        imageBase64: imagery?.imageBase64 ?? null,
+        probabilityMapBase64: imagery?.probabilityBase64 ?? null,
+        tileBounds: imagery?.tileBounds ?? null,
+        tileTransform: imagery?.transform ?? null,
+        tileCrs: imagery?.crs ?? null,
+        blockPolygon: imagery?.blockPolygon ?? polygon ?? null,
       } satisfies MineBlockRow;
     });
 
@@ -1274,14 +2436,28 @@ const QuantitativeResultsPage = () => {
             const props = block?.properties || {};
             const blockId = props.block_id || `${displayTileId}-block-${blockIdx + 1}`;
             const displayLabel = props.name || `${tileLabel} · Block ${blockIdx + 1}`;
+            const geometry = parseGeometryCandidate(block?.geometry ?? props.geometry ?? props.geom ?? null);
+            const polygon = normalizePolygonRings(geometry);
             const centroidArray = Array.isArray(props.label_position) && props.label_position.length >= 2
               ? props.label_position.map((value: any) => (typeof value === 'number' ? value : Number(value)))
               : undefined;
-            const boundsArray = Array.isArray(props.bbox) && props.bbox.length === 4
-              ? (props.bbox as any[]).map((value) => (typeof value === 'number' ? value : Number(value))) as [number, number, number, number]
-              : undefined;
+            const boundsArray = normalizeBoundsTuple(props.bbox) ?? boundsFromPolygon(polygon) ?? undefined;
 
             const metrics = quantitativeMetricMap.get(props.persistent_id || blockId) || quantitativeMetricMap.get(displayLabel);
+            const imagery = resolveImagery([
+              props.persistent_id,
+              blockId,
+              displayLabel,
+            ]) || {
+              imageBase64: typeof tile?.image_base64 === 'string' ? tile.image_base64 : null,
+              probabilityBase64: typeof tile?.probability_map_base64 === 'string' ? tile.probability_map_base64 : null,
+              tileBounds: normalizeBoundsTuple(tile?.bounds),
+              blockBounds: boundsArray ?? null,
+              tileLabel: tileLabel,
+              transform: normalizeTransformLocal(tile?.transform ?? tile?.affine ?? null),
+              crs: typeof tile?.crs === 'string' ? tile.crs : null,
+              blockPolygon: polygon ?? null,
+            };
 
             return {
               id: `tile-${blockId}`,
@@ -1300,6 +2476,12 @@ const QuantitativeResultsPage = () => {
               maxDepthMeters: metrics?.maxDepthMeters ?? null,
               meanDepthMeters: metrics?.meanDepthMeters ?? null,
               volumeCubicMeters: metrics?.volumeCubicMeters ?? null,
+              imageBase64: imagery?.imageBase64 ?? null,
+              probabilityMapBase64: imagery?.probabilityBase64 ?? null,
+              tileBounds: imagery?.tileBounds ?? null,
+              tileTransform: imagery?.transform ?? null,
+              tileCrs: imagery?.crs ?? null,
+              blockPolygon: imagery?.blockPolygon ?? polygon ?? null,
             } satisfies MineBlockRow;
           });
         })
@@ -1320,7 +2502,69 @@ const QuantitativeResultsPage = () => {
       return b.areaHa - a.areaHa;
     });
     return combined;
-  }, [results, quantitativeMetricMap, quantitativeResult?.blocks]);
+  }, [results, quantitativeMetricMap, quantitativeResult?.blocks, blockImageryMap]);
+
+  const mineBlockRowIndex = useMemo(() => {
+    const map = new Map<string, MineBlockRow>();
+    mineBlockRows.forEach((row) => {
+      const keys = [row.persistentId, row.id, row.label];
+      keys.forEach((key) => {
+        if (key === undefined || key === null) {
+          return;
+        }
+        const normalized = typeof key === 'string' ? key : String(key);
+        if (normalized) {
+          map.set(normalized, row);
+        }
+      });
+    });
+    return map;
+  }, [mineBlockRows]);
+
+  const getBlockImagery = useCallback((block: QuantitativeBlockMetric): BlockImagerySnapshot | null => {
+    const keys = [block.persistentId, block.blockId, block.blockLabel];
+    let fallback: BlockImagerySnapshot | null = null;
+
+    for (const candidate of keys) {
+      if (candidate === null || candidate === undefined) {
+        continue;
+      }
+      const key = typeof candidate === 'string' ? candidate : String(candidate);
+      if (!key) {
+        continue;
+      }
+
+      const snapshot = blockImageryMap.get(key);
+      if (snapshot?.imageBase64) {
+        return snapshot;
+      }
+      if (!fallback && snapshot) {
+        fallback = snapshot;
+      }
+
+      const row = mineBlockRowIndex.get(key);
+      if (row) {
+        const rowSnapshot: BlockImagerySnapshot = {
+          imageBase64: row.imageBase64 ?? null,
+          probabilityBase64: row.probabilityMapBase64 ?? null,
+          tileBounds: row.tileBounds ?? null,
+          blockBounds: row.bounds ?? null,
+          tileLabel: row.tileId ?? null,
+          transform: row.tileTransform ?? null,
+          crs: row.tileCrs ?? null,
+          blockPolygon: row.blockPolygon ?? null,
+        };
+        if (rowSnapshot.imageBase64) {
+          return rowSnapshot;
+        }
+        if (!fallback && (rowSnapshot.tileBounds || rowSnapshot.blockBounds)) {
+          fallback = rowSnapshot;
+        }
+      }
+    }
+
+    return fallback;
+  }, [blockImageryMap, mineBlockRowIndex]);
 
   const blockAnalytics = useMemo(() => {
     if (!mineBlockRows.length) {
@@ -1895,6 +3139,7 @@ const QuantitativeResultsPage = () => {
                       <TableRow>
                         <TableCell sx={{ color: '#e2e8f0', backgroundColor: 'rgba(15, 23, 42, 0.8)', fontWeight: 700 }}>Block</TableCell>
                         <TableCell sx={{ color: '#e2e8f0', backgroundColor: 'rgba(15, 23, 42, 0.8)', fontWeight: 700 }}>Volume & Depth</TableCell>
+                        <TableCell sx={{ color: '#e2e8f0', backgroundColor: 'rgba(15, 23, 42, 0.8)', fontWeight: 700 }}>Satellite Mosaic</TableCell>
                         <TableCell sx={{ color: '#e2e8f0', backgroundColor: 'rgba(15, 23, 42, 0.8)', fontWeight: 700 }}>
                           2D Elevation Contours
                         </TableCell>
@@ -1907,6 +3152,8 @@ const QuantitativeResultsPage = () => {
                       {visualizationBlocks.map((block) => {
                         const grid = block.visualization?.grid;
                         const stats = block.visualization?.stats as Record<string, number | null> | null;
+                        const extent = block.visualization?.extentUTM;
+                        const imagery = getBlockImagery(block);
                         return (
                           <TableRow
                             key={block.blockId ?? block.blockLabel}
@@ -1940,15 +3187,18 @@ const QuantitativeResultsPage = () => {
                                 )}
                               </Stack>
                             </TableCell>
+                            <TableCell sx={{ minWidth: 220, verticalAlign: 'top' }}>
+                              <BlockMosaicPreview imagery={imagery} label={block.blockLabel ?? block.blockId ?? 'Mine block'} />
+                            </TableCell>
                             <TableCell sx={{ minWidth: 320, verticalAlign: 'top' }}>
-                              {grid ? <ContourPlot grid={grid} /> : (
+                              {grid ? <ContourPlot grid={grid} extent={extent} /> : (
                                 <Typography sx={{ color: 'rgba(148, 163, 184, 0.75)', fontSize: '0.8rem' }}>
                                   Not available
                                 </Typography>
                               )}
                             </TableCell>
                             <TableCell sx={{ minWidth: 320, verticalAlign: 'top' }}>
-                              {grid ? <SurfacePlot grid={grid} /> : (
+                              {grid ? <SurfacePlot grid={grid} extent={extent} /> : (
                                 <Typography sx={{ color: 'rgba(148, 163, 184, 0.75)', fontSize: '0.8rem' }}>
                                   Not available
                                 </Typography>

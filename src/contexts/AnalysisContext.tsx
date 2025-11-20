@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useEffect, startTransition } from 'react';
 
 export interface CurrentAnalysis {
   analysisId: string;
@@ -11,18 +11,38 @@ export interface CurrentAnalysis {
   duration?: number;
   progress: number;
   message?: string;
-  results?: any;
+  results?: unknown;
 }
 
 interface AnalysisContextType {
   currentAnalysis: CurrentAnalysis | null;
   setCurrentAnalysis: (analysis: CurrentAnalysis | null) => void;
   updateAnalysisProgress: (progress: number, message?: string) => void;
-  updateAnalysisStatus: (status: CurrentAnalysis['status'], results?: any) => void;
+  updateAnalysisStatus: (status: CurrentAnalysis['status'], results?: unknown) => void;
   clearAnalysis: () => void;
 }
 
 const AnalysisContext = createContext<AnalysisContextType | undefined>(undefined);
+
+const MAX_MESSAGE_LENGTH = 500;
+
+const sanitizeAnalysisForStorage = (analysis: CurrentAnalysis) => {
+  const { results: _omittedResults, ...analysisWithoutResults } = analysis;
+  void _omittedResults;
+  const { message, ...rest } = analysisWithoutResults;
+
+  const trimmedMessage = typeof message === 'string'
+    ? message.slice(0, MAX_MESSAGE_LENGTH)
+    : message;
+
+  return {
+    ...rest,
+    // Results intentionally omitted to avoid large payloads in storage.
+    message: trimmedMessage,
+    startTime: new Date(analysis.startTime).toISOString(),
+    endTime: analysis.endTime ? new Date(analysis.endTime).toISOString() : null,
+  } satisfies Record<string, unknown>;
+};
 
 export function AnalysisProvider({ children }: { children: ReactNode }) {
   const [currentAnalysis, setCurrentAnalysis] = useState<CurrentAnalysis | null>(null);
@@ -31,13 +51,14 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (currentAnalysis) {
       try {
-        localStorage.setItem('currentAnalysis', JSON.stringify({
-          ...currentAnalysis,
-          startTime: new Date(currentAnalysis.startTime).toISOString(),
-          endTime: currentAnalysis.endTime ? new Date(currentAnalysis.endTime).toISOString() : null
-        }));
+        const payload = sanitizeAnalysisForStorage(currentAnalysis);
+        localStorage.setItem('currentAnalysis', JSON.stringify(payload));
       } catch (error) {
-        console.error('Failed to save analysis to localStorage:', error);
+        if (error instanceof DOMException && error.name === 'QuotaExceededError') {
+          console.warn('Storage quota exceeded while saving analysis progress. Persisted data has been skipped.');
+        } else {
+          console.error('Failed to save analysis to localStorage:', error);
+        }
       }
     } else {
       try {
@@ -56,10 +77,12 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
         const analysis = JSON.parse(stored);
         // Only restore if analysis is still processing
         if (analysis.status === 'processing') {
-          setCurrentAnalysis({
-            ...analysis,
-            startTime: new Date(analysis.startTime),
-            endTime: analysis.endTime ? new Date(analysis.endTime) : undefined
+          startTransition(() => {
+            setCurrentAnalysis({
+              ...analysis,
+              startTime: new Date(analysis.startTime),
+              endTime: analysis.endTime ? new Date(analysis.endTime) : undefined
+            });
           });
         }
       }
@@ -79,7 +102,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const updateAnalysisStatus = (status: CurrentAnalysis['status'], results?: any) => {
+  const updateAnalysisStatus = (status: CurrentAnalysis['status'], results?: unknown) => {
     setCurrentAnalysis(prev => {
       if (!prev) return null;
       const endTime = new Date();

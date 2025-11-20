@@ -3,12 +3,14 @@ import axios from "axios";
 
 // Track if token refresh is in progress
 let isRefreshing = false;
-let failedQueue: Array<{
-  resolve: (value?: any) => void;
-  reject: (reason?: any) => void;
-}> = [];
+type FailedRequest = {
+  resolve: (value?: unknown) => void;
+  reject: (reason?: unknown) => void;
+};
 
-const processQueue = (error: any | null) => {
+let failedQueue: FailedRequest[] = [];
+
+const processQueue = (error: unknown | null) => {
   failedQueue.forEach(promise => {
     if (error) {
       promise.reject(error);
@@ -71,8 +73,9 @@ apiClient.interceptors.response.use(
     const isAuthEndpoint = error.config?.url?.includes('/auth/');
     const isAnalysisEndpoint = error.config?.url?.includes('/python/analysis/');
     const is401 = error.response?.status === 401;
+    const isHistoryEndpoint = error.config?.url?.includes('/history/');
     
-    if (!is401 || (!isAuthEndpoint && !isAnalysisEndpoint)) {
+    if (!is401 || (!isAuthEndpoint && !isAnalysisEndpoint && !isHistoryEndpoint)) {
       console.error(`❌ API Error: ${error.response?.status} ${error.config?.url}`, error.response?.data);
     }
 
