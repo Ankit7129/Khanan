@@ -424,10 +424,10 @@ const EnhancedMapComponent: React.FC<EnhancedMapComponentProps> = ({ onAOICreate
             <div style="
               width: 30px;
               height: 30px;
-              background: linear-gradient(135deg, #f59e0b, #d97706);
+              background: linear-gradient(135deg, #3b82f6, #1e40af);
               border: 3px solid white;
               border-radius: 50%;
-              box-shadow: 0 4px 12px rgba(245,158,11,0.4);
+              box-shadow: 0 4px 12px rgba(59,130,246,0.4);
               display: flex;
               align-items: center;
               justify-content: center;
@@ -716,9 +716,9 @@ const EnhancedMapComponent: React.FC<EnhancedMapComponentProps> = ({ onAOICreate
           display: 'flex',
           flexDirection: 'column',
           borderRadius: 0,
-          background: 'linear-gradient(135deg, rgba(255, 253, 247, 0.92) 0%, rgba(255, 250, 242, 0.88) 50%, rgba(255, 248, 240, 0.9) 100%)',
-          borderRight: '1px solid rgba(217, 119, 6, 0.12)',
-          color: '#92400e'
+          background: 'linear-gradient(135deg, rgba(247, 250, 252, 0.92) 0%, rgba(245, 248, 251, 0.88) 50%, rgba(243, 247, 251, 0.9) 100%)',
+          borderRight: '1px solid rgba(59, 130, 246, 0.12)',
+          color: '#1e3a8a'
         }}
       >
         <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 3, minHeight: '100%' }}>
@@ -727,22 +727,22 @@ const EnhancedMapComponent: React.FC<EnhancedMapComponentProps> = ({ onAOICreate
             sx={{
               p: 2.5,
               borderRadius: 2,
-              background: 'linear-gradient(135deg, rgba(255, 251, 235, 0.98) 0%, rgba(255, 245, 220, 0.96) 100%)',
-              border: '1px solid rgba(217, 119, 6, 0.25)',
-              boxShadow: '0 18px 45px rgba(217, 119, 6, 0.18)'
+              background: 'linear-gradient(135deg, rgba(245, 247, 250, 0.98) 0%, rgba(237, 242, 247, 0.96) 100%)',
+              border: '1px solid rgba(59, 130, 246, 0.2)',
+              boxShadow: '0 18px 45px rgba(59, 130, 246, 0.1)'
             }}
           >
             <Typography
               variant="overline"
               sx={{
                 letterSpacing: 2,
-                color: 'rgba(217, 119, 6, 0.8)',
+                color: 'rgba(100, 116, 139, 0.9)',
                 textTransform: 'uppercase'
               }}
             >
-              Government of India | Directorate of Mining Surveillance
+              NTRO | DIRECTORATE OF MINING SURVEILLANCE
             </Typography>
-            <Typography variant="h6" sx={{ color: '#c65911', fontWeight: 700, mt: 0.5 }}>
+            <Typography variant="h6" sx={{ color: '#1e40af', fontWeight: 700, mt: 0.5 }}>
               Geo-Analyst Operations Console
             </Typography>
             <Box
@@ -750,7 +750,7 @@ const EnhancedMapComponent: React.FC<EnhancedMapComponentProps> = ({ onAOICreate
               sx={{
                 mt: 1,
                 pl: 3,
-                color: 'rgba(139, 92, 24, 0.85)',
+                color: 'rgba(51, 65, 85, 0.85)',
                 fontSize: '0.82rem',
                 display: 'grid',
                 gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
@@ -769,11 +769,11 @@ const EnhancedMapComponent: React.FC<EnhancedMapComponentProps> = ({ onAOICreate
                 label={locationPinned ? 'Location ready' : 'Pin location'}
                 variant="outlined"
                 sx={{
-                  borderColor: locationPinned ? 'rgba(217, 119, 6, 0.65)' : 'rgba(217, 119, 6, 0.35)',
-                  color: locationPinned ? '#b45309' : 'rgba(139, 92, 24, 0.75)',
-                  backgroundColor: locationPinned ? 'rgba(254, 200, 124, 0.15)' : 'transparent',
+                  borderColor: locationPinned ? 'rgba(59, 130, 246, 0.65)' : 'rgba(59, 130, 246, 0.35)',
+                  color: locationPinned ? '#1e40af' : 'rgba(30, 64, 175, 0.75)',
+                  backgroundColor: locationPinned ? 'rgba(59, 130, 246, 0.15)' : 'transparent',
                   '& .MuiChip-icon': {
-                    color: locationPinned ? '#ea580c' : 'rgba(217, 119, 6, 0.65)'
+                    color: locationPinned ? '#1e40af' : 'rgba(59, 130, 246, 0.65)'
                   },
                   '& .MuiChip-label': {
                     fontWeight: 600,
@@ -805,34 +805,34 @@ const EnhancedMapComponent: React.FC<EnhancedMapComponentProps> = ({ onAOICreate
                 variant="outlined"
                 sx={{
                   borderColor: aoiLocked
-                    ? 'rgba(217, 119, 6, 0.65)'
+                    ? 'rgba(59, 130, 246, 0.65)'
                     : isDrawing
-                    ? 'rgba(234, 88, 12, 0.5)'
+                    ? 'rgba(59, 130, 246, 0.5)'
                     : drawingPoints.length >= 3
-                    ? 'rgba(234, 88, 12, 0.4)'
-                    : 'rgba(217, 119, 6, 0.3)',
+                    ? 'rgba(59, 130, 246, 0.4)'
+                    : 'rgba(59, 130, 246, 0.3)',
                   color: aoiLocked
-                    ? '#c65911'
+                    ? '#1e40af'
                     : isDrawing
-                    ? '#d97706'
+                    ? '#1e40af'
                     : drawingPoints.length >= 3
-                    ? '#b45309'
-                    : 'rgba(139, 92, 24, 0.7)',
+                    ? '#1e3a8a'
+                    : 'rgba(30, 64, 175, 0.7)',
                   backgroundColor: aoiLocked
-                    ? 'rgba(234, 88, 12, 0.12)'
+                    ? 'rgba(59, 130, 246, 0.12)'
                     : isDrawing
-                    ? 'rgba(234, 88, 12, 0.08)'
+                    ? 'rgba(59, 130, 246, 0.08)'
                     : drawingPoints.length >= 3
-                    ? 'rgba(234, 88, 12, 0.06)'
+                    ? 'rgba(59, 130, 246, 0.06)'
                     : 'transparent',
                   '& .MuiChip-icon': {
                     color: aoiLocked
-                      ? '#ea580c'
+                      ? '#1e40af'
                       : isDrawing
-                      ? '#d97706'
+                      ? '#3b82f6'
                       : drawingPoints.length >= 3
-                      ? '#b45309'
-                      : 'rgba(217, 119, 6, 0.65)'
+                      ? '#1e40af'
+                      : 'rgba(59, 130, 246, 0.65)'
                   },
                   '& .MuiChip-label': {
                     fontWeight: 600,
@@ -845,11 +845,11 @@ const EnhancedMapComponent: React.FC<EnhancedMapComponentProps> = ({ onAOICreate
                 label={analysisStarted ? 'Analysis running' : 'Ready for analysis'}
                 variant="outlined"
                 sx={{
-                  borderColor: analysisStarted ? 'rgba(217, 119, 6, 0.65)' : 'rgba(217, 119, 6, 0.35)',
-                  color: analysisStarted ? '#c65911' : 'rgba(139, 92, 24, 0.7)',
-                  backgroundColor: analysisStarted ? 'rgba(254, 200, 124, 0.15)' : 'transparent',
+                  borderColor: analysisStarted ? 'rgba(59, 130, 246, 0.65)' : 'rgba(59, 130, 246, 0.35)',
+                  color: analysisStarted ? '#1e40af' : 'rgba(51, 65, 85, 0.7)',
+                  backgroundColor: analysisStarted ? 'rgba(59, 130, 246, 0.15)' : 'transparent',
                   '& .MuiChip-icon': {
-                    color: analysisStarted ? '#ea580c' : 'rgba(217, 119, 6, 0.6)'
+                    color: analysisStarted ? '#1e40af' : 'rgba(59, 130, 246, 0.6)'
                   },
                   '& .MuiChip-label': {
                     fontWeight: 600,
@@ -862,7 +862,7 @@ const EnhancedMapComponent: React.FC<EnhancedMapComponentProps> = ({ onAOICreate
 
           {/* Location Search */}
           <Box sx={{ position: 'relative' }}>
-            <Typography variant="subtitle2" fontWeight="bold" gutterBottom sx={{ color: 'rgba(139, 92, 24, 0.9)' }}>
+            <Typography variant="subtitle2" fontWeight="bold" gutterBottom sx={{ color: 'rgba(30, 64, 175, 0.85)' }}>
               Select site
             </Typography>
             <TextField
@@ -895,11 +895,11 @@ const EnhancedMapComponent: React.FC<EnhancedMapComponentProps> = ({ onAOICreate
                   border: 'none'
                 },
                 '& .MuiInputBase-input::placeholder': {
-                  color: 'rgba(139, 92, 24, 0.55)'
+                  color: 'rgba(100, 116, 139, 0.55)'
                 },
                 '& .MuiInputBase-root.Mui-focused': {
-                  border: '1px solid rgba(217, 119, 6, 0.65)',
-                  boxShadow: '0 0 0 2px rgba(217, 119, 6, 0.15)'
+                  border: '1px solid rgba(59, 130, 246, 0.65)',
+                  boxShadow: '0 0 0 2px rgba(59, 130, 246, 0.15)'
                 }
               }}
             />
@@ -958,14 +958,14 @@ const EnhancedMapComponent: React.FC<EnhancedMapComponentProps> = ({ onAOICreate
                                   fontSize: '0.65rem',
                                   borderRadius: 1.5,
                                   border: result.source === 'dataset'
-                                    ? '1px solid rgba(217, 119, 6, 0.6)'
-                                    : '1px solid rgba(217, 119, 6, 0.45)',
+                                    ? '1px solid rgba(59, 130, 246, 0.6)'
+                                    : '1px solid rgba(59, 130, 246, 0.45)',
                                   backgroundColor: result.source === 'dataset'
-                                    ? 'rgba(254, 200, 124, 0.18)'
-                                    : 'rgba(255, 245, 220, 0.85)',
+                                    ? 'rgba(59, 130, 246, 0.18)'
+                                    : 'rgba(237, 242, 247, 0.85)',
                                   color: result.source === 'dataset'
-                                    ? '#c65911'
-                                    : '#b45309',
+                                    ? '#1e40af'
+                                    : '#1e3a8a',
                                   '& .MuiChip-label': { px: 1.25, fontWeight: 600 }
                                 }}
                               />
@@ -985,7 +985,7 @@ const EnhancedMapComponent: React.FC<EnhancedMapComponentProps> = ({ onAOICreate
           <Divider
             textAlign="left"
             sx={{
-              borderColor: 'rgba(217, 119, 6, 0.2)',
+              borderColor: 'rgba(59, 130, 246, 0.2)',
               '&::before, &::after': {
                 borderColor: 'rgba(217, 119, 6, 0.2)'
               }
@@ -994,7 +994,7 @@ const EnhancedMapComponent: React.FC<EnhancedMapComponentProps> = ({ onAOICreate
             <Typography
               variant="caption"
               sx={{
-                color: 'rgba(217, 119, 6, 0.8)',
+                color: 'rgba(30, 64, 175, 0.8)',
                 letterSpacing: 2,
                 fontWeight: 600
               }}
@@ -1008,15 +1008,15 @@ const EnhancedMapComponent: React.FC<EnhancedMapComponentProps> = ({ onAOICreate
             sx={{
               p: 2,
               borderRadius: 2,
-              background: 'rgba(255, 245, 220, 0.4)',
-              border: '1px solid rgba(217, 119, 6, 0.2)'
+              background: 'rgba(237, 242, 247, 0.4)',
+              border: '1px solid rgba(59, 130, 246, 0.2)'
             }}
           >
             <Box
               component="ol"
               sx={{
                 pl: 3,
-                color: 'rgba(139, 92, 24, 0.85)',
+                color: 'rgba(51, 65, 85, 0.85)',
                 '& li': {
                   mb: 0.8,
                   fontSize: '0.82rem',
@@ -1039,10 +1039,10 @@ const EnhancedMapComponent: React.FC<EnhancedMapComponentProps> = ({ onAOICreate
                 startIcon={<Edit />}
                 onClick={startDrawing}
                 sx={{
-                  background: 'linear-gradient(135deg, #d97706 0%, #c65911 100%)',
+                  background: 'linear-gradient(135deg, #2563eb 0%, #1e40af 100%)',
                   color: '#ffffff',
-                  boxShadow: '0 10px 25px rgba(217, 119, 6, 0.35)',
-                  '&:hover': { background: 'linear-gradient(135deg, #c65911 0%, #b45309 100%)' }
+                  boxShadow: '0 10px 25px rgba(37, 99, 235, 0.35)',
+                  '&:hover': { background: 'linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%)' }
                 }}
               >
                 Draw AOI
@@ -1055,7 +1055,7 @@ const EnhancedMapComponent: React.FC<EnhancedMapComponentProps> = ({ onAOICreate
                   label={`Drawing: ${drawingPoints.length} pts`}
                   color="warning"
                   icon={<Edit />}
-                  sx={{ bgcolor: 'rgba(217, 119, 6, 0.15)', color: '#c65911' }}
+                  sx={{ bgcolor: 'rgba(59, 130, 246, 0.15)', color: '#1e40af' }}
                 />
                 <Stack direction="row" spacing={1}>
                   <Button
@@ -1170,10 +1170,10 @@ const EnhancedMapComponent: React.FC<EnhancedMapComponentProps> = ({ onAOICreate
               bottom: 16,
               zIndex: 20,
               mt: 2,
-              background: 'linear-gradient(180deg, rgba(255, 250, 235, 0.95) 0%, rgba(255, 245, 220, 0.92) 100%)',
+              background: 'linear-gradient(180deg, rgba(245, 247, 250, 0.95) 0%, rgba(237, 242, 247, 0.92) 100%)',
               borderRadius: 2,
-              border: '1px solid rgba(217, 119, 6, 0.25)',
-              boxShadow: '0 18px 36px rgba(217, 119, 6, 0.15)',
+              border: '1px solid rgba(59, 130, 246, 0.2)',
+              boxShadow: '0 18px 36px rgba(59, 130, 246, 0.1)',
               p: 1.5
             }}
           >
@@ -1187,13 +1187,13 @@ const EnhancedMapComponent: React.FC<EnhancedMapComponentProps> = ({ onAOICreate
                   onClick={startAnalysis}
                   disabled={analysisStarted}
                   sx={{
-                    background: 'linear-gradient(135deg, #ea580c 0%, #c65911 100%)',
+                    background: 'linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%)',
                     color: '#ffffff',
-                    boxShadow: '0 12px 28px rgba(217, 119, 6, 0.35)',
-                    '&:hover': { background: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)' },
+                    boxShadow: '0 12px 28px rgba(30, 64, 175, 0.35)',
+                    '&:hover': { background: 'linear-gradient(135deg, #2563eb 0%, #1e40af 100%)' },
                     '&.Mui-disabled': {
-                      background: 'rgba(217, 119, 6, 0.25)',
-                      color: 'rgba(255, 247, 237, 0.65)'
+                      background: 'rgba(59, 130, 246, 0.25)',
+                      color: 'rgba(237, 242, 247, 0.65)'
                     }
                   }}
                 >

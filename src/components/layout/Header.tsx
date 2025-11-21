@@ -221,7 +221,7 @@ export const Header = () => {
   const renderLeftSection = () => {
     if (isGeoAnalystDashboard) {
       return (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1.5, sm: 2.5 } }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1.5, sm: 2.5 }, width: '100%' }}>
           <IconButton
             onClick={toggleSidebar}
             sx={{
@@ -240,22 +240,45 @@ export const Header = () => {
               src="https://doc.ux4g.gov.in/assets/img/logo/national-emblem.png"
               alt="National emblem"
               loading="lazy"
-              sx={{ height: { xs: 32, md: 44 }, width: 'auto' }}
+              sx={{ height: { xs: 36, md: 48 }, width: 'auto' }}
             />
             <Box
               component="img"
-              src="https://doc.ux4g.gov.in/assets/img/logo/company-logo.png"
-              alt="Department logo"
+              src="/ntro logo.png"
+              alt="NTRO"
               loading="lazy"
-              sx={{ height: { xs: 32, md: 44 }, width: 'auto' }}
+              sx={{ height: { xs: 36, md: 48 }, width: 'auto' }}
             />
             <Box
-              component="img"
-              src="https://doc.ux4g.gov.in/assets/img/logo/g20-summit.png"
-              alt="G20 summit"
-              loading="lazy"
-              sx={{ height: { xs: 28, md: 40 }, width: 'auto', display: { xs: 'none', sm: 'block' } }}
+              sx={{
+                width: '1px',
+                height: 40,
+                bgcolor: '#E5E7EB',
+                borderRadius: 0.5,
+                display: { xs: 'none', sm: 'block' },
+              }}
             />
+            <Box sx={{ display: { xs: 'none', sm: 'flex' }, alignItems: 'center', gap: 1 }}>
+              <Box
+                component="img"
+                src="/logo.png"
+                alt="KhananNetra"
+                loading="lazy"
+                sx={{ height: { xs: 36, md: 48 }, width: 'auto' }}
+              />
+              <Typography
+                variant="subtitle1"
+                sx={{
+                  fontWeight: 600,
+                  fontSize: { xs: 16, md: 18 },
+                  color: '#111827',
+                  fontFamily: '"EB Garamond", "Garamond", "Times New Roman",serif',
+                  letterSpacing: 0.5,
+                }}
+              >
+                KhananNetra
+              </Typography>
+            </Box>
           </Box>
         </Box>
       );
@@ -297,24 +320,24 @@ export const Header = () => {
       elevation={0}
       sx={{
         zIndex: theme.zIndex.drawer + 1,
-        background: isGeoAnalystDashboard
-          ? '#ffffff'
-          : 'linear-gradient(to right, #1a1a2e, #16213e, #0f3460)',
-        borderBottom: isGeoAnalystDashboard
-          ? '1px solid rgba(15, 23, 42, 0.08)'
-          : '1px solid rgba(251, 191, 36, 0.2)',
-        boxShadow: isGeoAnalystDashboard
-          ? '0 18px 45px rgba(15, 23, 42, 0.18)'
-          : '0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2)',
-        color: isGeoAnalystDashboard ? '#1f2937' : '#ffffff'
-      }}
-    >
-      <Toolbar sx={{
-        justifyContent: 'space-between',
-        p: 0,
-        px: isGeoAnalystDashboard ? { xs: 1.5, md: 3 } : { xs: 1, sm: 2 },
-        minHeight: isGeoAnalystDashboard ? '56px !important' : '64px !important'
-      }}>
+          background: isGeoAnalystDashboard
+            ? '#ffffff'
+            : 'linear-gradient(to right, #1a1a2e, #16213e, #0f3460)',
+          borderBottom: isGeoAnalystDashboard
+            ? '1px solid rgba(15, 23, 42, 0.08)'
+            : '1px solid rgba(251, 191, 36, 0.2)',
+          boxShadow: isGeoAnalystDashboard
+            ? '0 2px 8px rgba(15, 23, 42, 0.08)'
+            : '0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2)',
+          color: isGeoAnalystDashboard ? '#1f2937' : '#ffffff'
+        }}
+      >
+        <Toolbar sx={{
+          justifyContent: 'space-between',
+          p: 0,
+          px: isGeoAnalystDashboard ? { xs: 1.5, md: 3 } : { xs: 1, sm: 2 },
+          minHeight: isGeoAnalystDashboard ? '64px !important' : '64px !important'
+        }}>
         {/* Left: Sidebar + Branding */}
         {renderLeftSection()}
 

@@ -53,11 +53,11 @@ import {
 import { MineBlockTable } from '@/components/geoanalyst/MineBlockTable';
 
 const GoldenText = styled(Typography)({
-  background: 'linear-gradient(to right, #fbbf24, #fcd34d, #fbbf24)',
+  background: 'linear-gradient(to right, #3b82f6, #1e40af, #3b82f6)',
   backgroundClip: 'text',
   WebkitBackgroundClip: 'text',
   WebkitTextFillColor: 'transparent',
-  filter: 'drop-shadow(0 2px 4px rgba(251, 191, 36, 0.3))',
+  filter: 'drop-shadow(0 2px 4px rgba(59, 130, 246, 0.3))',
 });
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
@@ -2738,7 +2738,7 @@ const QuantitativeResultsPage = () => {
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: 'linear-gradient(to right, #1a1a2e, #16213e, #0f3460)' }}>
-        <CircularProgress sx={{ color: '#fcd34d' }} size={60} />
+        <CircularProgress sx={{ color: '#3b82f6' }} size={60} />
       </Box>
     );
   }
@@ -2758,7 +2758,7 @@ const QuantitativeResultsPage = () => {
           <Button
             startIcon={<ArrowBack />}
             onClick={() => router.push(`/geoanalyst-dashboard/results?id=${analysisId ?? ''}`)}
-            sx={{ color: '#fcd34d', textTransform: 'none' }}
+            sx={{ color: '#3b82f6', textTransform: 'none' }}
           >
             Back to Results Explorer
           </Button>
@@ -2876,7 +2876,7 @@ const QuantitativeResultsPage = () => {
                 <Stack spacing={2.5}>
                   <Stack direction={{ xs: 'column', md: 'row' }} spacing={2.5}>
                     <Box sx={{ flex: 1 }}>
-                      <Typography sx={{ color: '#fbbf24', fontWeight: 700, mb: 1 }}>
+                      <Typography sx={{ color: '#3b82f6', fontWeight: 700, mb: 1 }}>
                         Executive Summary
                       </Typography>
                       <Stack spacing={1.25}>
@@ -2901,7 +2901,7 @@ const QuantitativeResultsPage = () => {
                       </Stack>
                     </Box>
                     <Box sx={{ flex: 1 }}>
-                      <Typography sx={{ color: '#fbbf24', fontWeight: 700, mb: 1 }}>
+                      <Typography sx={{ color: '#3b82f6', fontWeight: 700, mb: 1 }}>
                         Priority Blocks (Top {topPriorityBlocks.length})
                       </Typography>
                       {topPriorityBlocks.length ? (
@@ -2944,19 +2944,19 @@ const QuantitativeResultsPage = () => {
                       )}
                     </Box>
                     <Box sx={{ flex: 1 }}>
-                      <Typography sx={{ color: '#fbbf24', fontWeight: 700, mb: 1 }}>
+                      <Typography sx={{ color: '#3b82f6', fontWeight: 700, mb: 1 }}>
                         Governance Insights
                       </Typography>
                       <Stack spacing={1.25}>
                         <Typography sx={{ color: 'rgba(226, 232, 240, 0.8)', fontSize: '0.85rem' }}>
-                          Average mean depth across blocks: <Box component="span" sx={{ color: '#fcd34d', fontWeight: 600 }}>
+                          Average mean depth across blocks: <Box component="span" sx={{ color: '#3b82f6', fontWeight: 600 }}>
                             {formatNumber(insights?.averageMeanDepthMeters ?? volumetricSummary?.averageMeanDepthMeters ?? null, 2)} m
                           </Box>
                         </Typography>
                         {insights?.deepestBlock && (
                           <Typography sx={{ color: 'rgba(226, 232, 240, 0.8)', fontSize: '0.85rem' }}>
                             Deepest excavation:
-                            <Box component="span" sx={{ color: '#fcd34d', fontWeight: 600, ml: 0.5 }}>
+                            <Box component="span" sx={{ color: '#3b82f6', fontWeight: 600, ml: 0.5 }}>
                               {insights.deepestBlock.label}
                             </Box>
                             {' '}({formatNumber(insights.deepestBlock.maxDepthMeters, 2)} m)
@@ -2965,7 +2965,7 @@ const QuantitativeResultsPage = () => {
                         {insights?.largestBlock && (
                           <Typography sx={{ color: 'rgba(226, 232, 240, 0.8)', fontSize: '0.85rem' }}>
                             Highest volume block:
-                            <Box component="span" sx={{ color: '#fcd34d', fontWeight: 600, ml: 0.5 }}>
+                            <Box component="span" sx={{ color: '#3b82f6', fontWeight: 600, ml: 0.5 }}>
                               {insights.largestBlock.label}
                             </Box>
                             {' '}({formatVolume(insights.largestBlock.volumeCubicMeters)})
@@ -2995,7 +2995,7 @@ const QuantitativeResultsPage = () => {
               }}
               elevation={0}
             >
-              <Typography sx={{ color: '#fcd34d', fontWeight: 700, mb: 1 }}>
+              <Typography sx={{ color: '#3b82f6', fontWeight: 700, mb: 1 }}>
                 Spatial Footprint Summary
               </Typography>
               <Divider sx={{ borderColor: 'rgba(148, 163, 184, 0.25)', mb: 2 }} />
@@ -3030,7 +3030,7 @@ const QuantitativeResultsPage = () => {
               }}
               elevation={0}
             >
-              <Typography sx={{ color: '#fcd34d', fontWeight: 700, mb: 1 }}>
+              <Typography sx={{ color: '#3b82f6', fontWeight: 700, mb: 1 }}>
                 Confidence Distribution
               </Typography>
               <Divider sx={{ borderColor: 'rgba(148, 163, 184, 0.25)', mb: 2 }} />
@@ -3070,7 +3070,7 @@ const QuantitativeResultsPage = () => {
               }}
               elevation={0}
             >
-              <Typography sx={{ color: '#fcd34d', fontWeight: 700, mb: 1 }}>
+              <Typography sx={{ color: '#3b82f6', fontWeight: 700, mb: 1 }}>
                 Volumetric Summary
               </Typography>
               <Divider sx={{ borderColor: 'rgba(148, 163, 184, 0.25)', mb: 2 }} />
@@ -3103,7 +3103,7 @@ const QuantitativeResultsPage = () => {
                   </Stack>
                   {volumetricSummary.deepestBlock && (
                     <Typography sx={{ color: 'rgba(148, 163, 184, 0.75)', fontSize: '0.8rem' }}>
-                      Deepest block <Box component="span" sx={{ color: '#fcd34d', fontWeight: 600 }}>
+                      Deepest block <Box component="span" sx={{ color: '#3b82f6', fontWeight: 600 }}>
                         {volumetricSummary.deepestBlock.label}
                       </Box>{' '}
                       reaches {formatNumber(volumetricSummary.deepestBlock.maxDepthMeters, 2)} m with volume{' '}
@@ -3128,7 +3128,7 @@ const QuantitativeResultsPage = () => {
               }}
               elevation={0}
             >
-              <Typography sx={{ color: '#fcd34d', fontWeight: 700, mb: 1 }}>
+              <Typography sx={{ color: '#3b82f6', fontWeight: 700, mb: 1 }}>
                 Block Inventory Overview
               </Typography>
               <Divider sx={{ borderColor: 'rgba(148, 163, 184, 0.25)', mb: 2 }} />
@@ -3185,7 +3185,7 @@ const QuantitativeResultsPage = () => {
                 elevation={0}
               >
                 <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-                  <Typography sx={{ color: '#fcd34d', fontWeight: 700 }}>
+                  <Typography sx={{ color: '#3b82f6', fontWeight: 700 }}>
                     DEM Visual Evidence (per block)
                   </Typography>
                   <Typography sx={{ color: 'rgba(148, 163, 184, 0.75)', fontSize: '0.75rem' }}>
@@ -3290,7 +3290,7 @@ const QuantitativeResultsPage = () => {
               elevation={0}
             >
               <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-                <Typography sx={{ color: '#fcd34d', fontWeight: 700 }}>
+                <Typography sx={{ color: '#3b82f6', fontWeight: 700 }}>
                   Quantitative Pipeline
                 </Typography>
                 <Stack direction="row" spacing={1.5} alignItems="center">
@@ -3388,7 +3388,7 @@ const QuantitativeResultsPage = () => {
                 }}
                 elevation={0}
               >
-                <Typography sx={{ color: '#fcd34d', fontWeight: 700, mb: 1 }}>
+                <Typography sx={{ color: '#3b82f6', fontWeight: 700, mb: 1 }}>
                   DEM Inputs
                 </Typography>
                 <Divider sx={{ borderColor: 'rgba(148, 163, 184, 0.25)', mb: 2 }} />
@@ -3427,7 +3427,7 @@ const QuantitativeResultsPage = () => {
           }}
           elevation={0}
         >
-          <Typography sx={{ color: '#fcd34d', fontWeight: 700, mb: 1 }}>
+          <Typography sx={{ color: '#3b82f6', fontWeight: 700, mb: 1 }}>
             Analysis Metadata
           </Typography>
           <Divider sx={{ borderColor: 'rgba(148, 163, 184, 0.25)', mb: 1.5 }} />

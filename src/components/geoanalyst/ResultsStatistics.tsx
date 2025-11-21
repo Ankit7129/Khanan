@@ -10,11 +10,11 @@ import { styled } from '@mui/material/styles';
 import { deriveTileAreaMetrics, deriveConfidenceMetrics, parseNumeric } from '@/lib/analysisMetrics';
 
 const GoldenText = styled(Typography)({
-  background: 'linear-gradient(to right, #fbbf24, #fcd34d, #fbbf24)',
+  background: 'linear-gradient(to right, #3b82f6, #1e40af, #3b82f6)',
   backgroundClip: 'text',
   WebkitBackgroundClip: 'text',
   WebkitTextFillColor: 'transparent',
-  filter: 'drop-shadow(0 2px 4px rgba(251, 191, 36, 0.3))'
+  filter: 'drop-shadow(0 2px 4px rgba(59, 130, 246, 0.3))'
 });
 
 interface AnalysisSummary {

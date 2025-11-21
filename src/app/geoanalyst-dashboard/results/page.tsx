@@ -43,11 +43,11 @@ L.Icon.Default.mergeOptions({
 });
 
 const GoldenText = styled(Typography)({
-  background: 'linear-gradient(to right, #fbbf24, #fcd34d, #fbbf24)',
+  background: 'linear-gradient(to right, #3b82f6, #1e40af, #3b82f6)',
   backgroundClip: 'text',
   WebkitBackgroundClip: 'text',
   WebkitTextFillColor: 'transparent',
-  filter: 'drop-shadow(0 2px 4px rgba(251, 191, 36, 0.3))'
+  filter: 'drop-shadow(0 2px 4px rgba(59, 130, 246, 0.3))'
 });
 
 // API Base URL from environment
@@ -522,7 +522,7 @@ const ResultsPage = () => {
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: 'linear-gradient(to right, #1a1a2e, #16213e, #0f3460)' }}>
-        <CircularProgress sx={{ color: '#fcd34d' }} size={60} />
+        <CircularProgress sx={{ color: '#3b82f6' }} size={60} />
       </Box>
     );
   }
@@ -593,7 +593,7 @@ const ResultsPage = () => {
               <Button
                 startIcon={<ArrowBack />}
                 onClick={() => router.push('/geoanalyst-dashboard')}
-                sx={{ mb: 2, color: '#fcd34d', textTransform: 'none' }}
+                sx={{ mb: 2, color: '#3b82f6', textTransform: 'none' }}
               >
                 Back to Dashboard
               </Button>
@@ -656,10 +656,10 @@ const ResultsPage = () => {
                 startIcon={<Download />}
                 onClick={handleDownloadReport}
                 sx={{
-                  color: '#fcd34d',
+                  color: '#3b82f6',
                   borderColor: 'rgba(252, 211, 77, 0.5)',
                   '&:hover': {
-                    borderColor: '#fbbf24',
+                    borderColor: '#3b82f6',
                     backgroundColor: 'rgba(251, 191, 36, 0.1)'
                   },
                   textTransform: 'none',
@@ -765,7 +765,7 @@ const ResultsPage = () => {
           <Tooltip title={fullscreen ? 'Exit Fullscreen' : 'Fullscreen Map'}>
             <IconButton
               onClick={() => setFullscreen(!fullscreen)}
-              sx={{ color: '#fcd34d' }}
+              sx={{ color: '#3b82f6' }}
             >
               {fullscreen ? <FullscreenExit /> : <Fullscreen />}
             </IconButton>
@@ -787,7 +787,7 @@ const ResultsPage = () => {
             minWidth: 200
           }}
         >
-          <Typography sx={{ color: '#fcd34d', fontWeight: 'bold', fontSize: '0.875rem', mb: 1 }}>
+          <Typography sx={{ color: '#3b82f6', fontWeight: 'bold', fontSize: '0.875rem', mb: 1 }}>
             Map Legend
           </Typography>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
