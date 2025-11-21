@@ -1,7 +1,7 @@
 'use client';
 import React, { useEffect, useState } from 'react';
-import { useRouter } from "next/navigation";
-import { 
+import { usePathname, useRouter } from "next/navigation";
+import {
   NotificationsOutlined,
   Fullscreen,
   FullscreenExit,
@@ -14,8 +14,8 @@ import {
   AdminPanelSettings,
   Security
 } from '@mui/icons-material';
-import { 
-  Avatar, 
+import {
+  Avatar,
   Badge,
   IconButton,
   Tooltip,
@@ -61,12 +61,12 @@ const RoleChip = styled(Chip)(({ theme }) => ({
 const useIsMobile = () => {
   const theme = useTheme();
   const [isMobile, setIsMobile] = useState(false);
-  
+
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < theme.breakpoints.values.md);
     };
-    
+
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
@@ -77,17 +77,18 @@ const useIsMobile = () => {
 
 export const Header = () => {
   const router = useRouter();
+  const pathname = usePathname();
   const theme = useTheme();
   const { toggleSidebar } = useSidebar();
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [profileMenuAnchor, setProfileMenuAnchor] = useState<null | HTMLElement>(null);
   const isMobile = useIsMobile();
-  const { 
-    isAuthenticated, 
-    user, 
-    permissions, 
-    logout, 
-    isSuperAdmin, 
+  const {
+    isAuthenticated,
+    user,
+    permissions,
+    logout,
+    isSuperAdmin,
     getAccessLevel,
     getAccessTier,
     getUserRoles,
@@ -208,20 +209,22 @@ export const Header = () => {
     return roles[0] || 'public_user';
   };
 
+  const isGeoAnalystDashboard = pathname?.startsWith('/geoanalyst-dashboard');
+
   return (
-    <AppBar 
-      position="fixed" 
+    <AppBar
+      position="fixed"
       elevation={0}
-      sx={{ 
+      sx={{
         zIndex: theme.zIndex.drawer + 1,
         background: 'linear-gradient(to right, #1a1a2e, #16213e, #0f3460)',
         borderBottom: '1px solid rgba(251, 191, 36, 0.2)',
         boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2)'
       }}
     >
-      <Toolbar sx={{ 
+      <Toolbar sx={{
         justifyContent: 'space-between',
-        p: 0, 
+        p: 0,
         px: { xs: 1, sm: 2 },
         minHeight: '64px !important'
       }}>
@@ -229,9 +232,9 @@ export const Header = () => {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <IconButton
             onClick={toggleSidebar}
-            sx={{ 
+            sx={{
               color: '#fcd34d',
-              '&:hover': { 
+              '&:hover': {
                 backgroundColor: 'rgba(251, 191, 36, 0.1)',
                 color: '#fbbf24'
               }
@@ -240,10 +243,10 @@ export const Header = () => {
             <SidebarTrigger asChild />
           </IconButton>
           <Logo size={40} withCircle={true} />
-          <GradientText 
-            variant="h6" 
+          <GradientText
+            variant="h6"
             onClick={() => router.push("/dashboard")}
-            sx={{ 
+            sx={{
               ml: 1,
               display: { xs: 'none', sm: 'block' },
               cursor: 'pointer'
@@ -254,7 +257,7 @@ export const Header = () => {
         </Box>
 
         {/* Center: Quick Actions (Desktop Only) */}
-        {!isMobile && isAuthenticated && (
+        {!isMobile && isAuthenticated && !isGeoAnalystDashboard && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Tooltip title="New Mining Analysis">
               <Button
@@ -262,7 +265,7 @@ export const Header = () => {
                 size="small"
                 startIcon={<SatelliteAlt />}
                 onClick={() => handleQuickAction('analysis')}
-                sx={{ 
+                sx={{
                   textTransform: 'none',
                   borderRadius: 2,
                   fontSize: '0.8rem',
@@ -278,14 +281,14 @@ export const Header = () => {
                 New Analysis
               </Button>
             </Tooltip>
-            
+
             <Tooltip title="View Maps">
               <Button
                 variant="outlined"
                 size="small"
                 startIcon={<Map />}
                 onClick={() => handleQuickAction('maps')}
-                sx={{ 
+                sx={{
                   textTransform: 'none',
                   borderRadius: 2,
                   fontSize: '0.8rem',
@@ -308,7 +311,7 @@ export const Header = () => {
                 size="small"
                 startIcon={<Assessment />}
                 onClick={() => handleQuickAction('reports')}
-                sx={{ 
+                sx={{
                   textTransform: 'none',
                   borderRadius: 2,
                   fontSize: '0.8rem',
@@ -333,7 +336,7 @@ export const Header = () => {
                   size="small"
                   startIcon={<AdminPanelSettings />}
                   onClick={() => handleQuickAction('admin')}
-                  sx={{ 
+                  sx={{
                     textTransform: 'none',
                     borderRadius: 2,
                     fontSize: '0.8rem',
@@ -354,17 +357,17 @@ export const Header = () => {
         )}
 
         {/* Right: User Actions */}
-        <Box sx={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: { xs: 0.5, sm: 1 } 
+        <Box sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: { xs: 0.5, sm: 1 }
         }}>
           {/* Search Icon */}
           <Tooltip title="Search">
-            <IconButton 
+            <IconButton
               onClick={() => router.push('/search')}
               size="small"
-              sx={{ 
+              sx={{
                 color: '#fcd34d',
                 '&:hover': {
                   color: '#fbbf24',
@@ -379,10 +382,10 @@ export const Header = () => {
           {/* Notifications */}
           {isAuthenticated && (
             <Tooltip title="Notifications">
-              <IconButton 
-                onClick={() => router.push("/notifications")} 
+              <IconButton
+                onClick={() => router.push("/notifications")}
                 size="small"
-                sx={{ 
+                sx={{
                   color: '#fcd34d',
                   '&:hover': {
                     color: '#fbbf24',
@@ -390,8 +393,8 @@ export const Header = () => {
                   }
                 }}
               >
-                <Badge 
-                  badgeContent={0} 
+                <Badge
+                  badgeContent={0}
                   overlap="circular"
                   sx={{
                     '& .MuiBadge-badge': {
@@ -430,19 +433,19 @@ export const Header = () => {
                   />
                 </>
               )}
-              
+
               {/* User Avatar with Menu */}
               <Tooltip title={`${user.name} - ${user.designation}`}>
-                <IconButton 
+                <IconButton
                   onClick={handleProfileMenuOpen}
-                  size="small" 
+                  size="small"
                   sx={{ p: 0.5 }}
                 >
                   <Avatar
                     src={user.profileImage}
                     alt={user.name}
-                    sx={{ 
-                      width: 32, 
+                    sx={{
+                      width: 32,
                       height: 32,
                       bgcolor: '#fbbf24',
                       color: '#1a1a2e',
@@ -521,10 +524,10 @@ export const Header = () => {
           {/* Fullscreen Toggle (Desktop Only) */}
           {!isMobile && (
             <Tooltip title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}>
-              <IconButton 
-                onClick={toggleFullscreen} 
+              <IconButton
+                onClick={toggleFullscreen}
                 size="small"
-                sx={{ 
+                sx={{
                   color: '#ffffff',
                   '&:hover': {
                     color: '#fcd34d',
@@ -532,8 +535,8 @@ export const Header = () => {
                   }
                 }}
               >
-                {isFullscreen ? 
-                  <FullscreenExit fontSize="small" /> : 
+                {isFullscreen ?
+                  <FullscreenExit fontSize="small" /> :
                   <Fullscreen fontSize="small" />
                 }
               </IconButton>
