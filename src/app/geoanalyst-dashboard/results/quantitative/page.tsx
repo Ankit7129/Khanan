@@ -50,6 +50,7 @@ import {
   normalizeConfidenceValue,
   parseNumeric,
 } from '@/lib/analysisMetrics';
+import { normalizeAnalysisResults, CanonicalAnalysisResults } from '@/lib/normalizeAnalysisResults';
 import { MineBlockTable } from '@/components/geoanalyst/MineBlockTable';
 
 const GoldenText = styled(Typography)({
@@ -1778,7 +1779,7 @@ const QuantitativeResultsPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [historyRecord, setHistoryRecord] = useState<AnalysisHistoryRecord | null>(null);
-  const [results, setResults] = useState<any>(null);
+  const [results, setResults] = useState<CanonicalAnalysisResults | null>(null);
   const [quantitativeLoading, setQuantitativeLoading] = useState(false);
   const [quantitativeError, setQuantitativeError] = useState<string | null>(null);
   const [quantitativeResult, setQuantitativeResult] = useState<QuantitativeResponse | null>(null);
@@ -1846,12 +1847,15 @@ const QuantitativeResultsPage = () => {
           'history.quantitativeAnalysis',
         );
 
+        const parsedResults = normalizedResults
+          ?? (typeof record?.results === 'object' && record?.results !== null
+            ? (record.results as AnalysisResults)
+            : undefined);
+        const canonicalResults = normalizeAnalysisResults(parsedResults ?? null);
+
         const hydratedRecord: AnalysisHistoryRecord = {
           ...record,
-          results: (normalizedResults
-            ?? (typeof record?.results === 'object' && record?.results !== null
-              ? (record.results as AnalysisResults)
-              : undefined)) as AnalysisResults | undefined,
+          results: (canonicalResults ?? parsedResults ?? undefined) as AnalysisResults | undefined,
           quantitativeAnalysis: normalizedQuantitative
             ?? (typeof record?.quantitativeAnalysis === 'object' && record?.quantitativeAnalysis !== null
               ? record.quantitativeAnalysis as QuantitativeAnalysisSnapshot
@@ -1860,22 +1864,25 @@ const QuantitativeResultsPage = () => {
 
         debugLog('History record loaded', {
           analysisId,
-          hasResults: !!hydratedRecord.results,
+          hasResults: !!canonicalResults,
           hasQuantitative: !!hydratedRecord.quantitativeAnalysis,
         });
 
         setHistoryRecord(hydratedRecord);
-        if (hydratedRecord.results) {
-          setResults(hydratedRecord.results);
+        if (canonicalResults) {
+          setResults(canonicalResults);
           debugLog('Baseline detections hydrated', {
             analysisId,
-            tileCount: Array.isArray(hydratedRecord.results.tiles)
-              ? hydratedRecord.results.tiles.length
+            tileCount: Array.isArray(canonicalResults.tiles)
+              ? canonicalResults.tiles.length
               : 0,
-            detectionCount: (hydratedRecord.results as any)?.detectionCount
-              ?? (hydratedRecord.results as any)?.statistics?.totalDetections
+            detectionCount: canonicalResults.detectionCount
+              ?? (canonicalResults.statistics as any)?.totalDetections
+              ?? canonicalResults.detections?.length
               ?? null,
           });
+        } else {
+          setResults(null);
         }
 
         if (hydratedRecord.quantitativeAnalysis) {
@@ -1942,8 +1949,19 @@ const QuantitativeResultsPage = () => {
           detections: (data?.detectionCount ?? data?.statistics?.totalDetections) ?? null,
         });
 
-  setResults(data);
-  setHistoryRecord((prev) => (prev ? { ...prev, results: data as AnalysisResults } : prev));
+        const canonicalLiveResults = normalizeAnalysisResults(data ?? null);
+        if (canonicalLiveResults) {
+          setResults(canonicalLiveResults);
+        } else {
+          setResults(null);
+        }
+
+        setHistoryRecord((prev) => (prev
+          ? {
+              ...prev,
+              results: (canonicalLiveResults ?? prev.results ?? undefined) as AnalysisResults | undefined,
+            }
+          : prev));
         initialQuantAttemptRef.current = false;
         setShouldRecompute(true);
       } catch (liveError: any) {
@@ -2435,8 +2453,8 @@ const QuantitativeResultsPage = () => {
       return fallbackQuantitativeBlocks;
     }
 
-    const mergedFeatures = Array.isArray(results?.merged_blocks?.features)
-      ? results.merged_blocks.features
+    const mergedFeatures = Array.isArray(results?.mergedBlocks?.features)
+      ? results.mergedBlocks.features
       : [];
 
     const mergedRows = mergedFeatures.map((feature: any, index: number) => {

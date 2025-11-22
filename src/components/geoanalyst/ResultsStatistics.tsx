@@ -8,6 +8,7 @@ import {
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { deriveTileAreaMetrics, deriveConfidenceMetrics, parseNumeric } from '@/lib/analysisMetrics';
+import { CanonicalAnalysisResults } from '@/lib/normalizeAnalysisResults';
 
 const GoldenText = styled(Typography)({
   background: 'linear-gradient(to right, #3b82f6, #1e40af, #3b82f6)',
@@ -53,21 +54,8 @@ interface AnalysisTile {
   mask_shape?: [number, number];
 }
 
-interface DetectionResults {
-  analysis_id?: string;
-  status?: string;
-  summary?: AnalysisSummary;
-  tiles?: AnalysisTile[];
-  statistics?: {
-    avgConfidence?: number;
-    maxConfidence?: number;
-    minConfidence?: number;
-    coveragePercentage?: number;
-  };
-}
-
 interface ResultsStatisticsProps {
-  results: DetectionResults;
+  results: CanonicalAnalysisResults & { analysis_id?: string };
   onOpenQuantitativeAnalysis?: () => void;
 }
 
@@ -85,19 +73,25 @@ const formatNumber = (value: number | undefined | null, fractionDigits = 0) => {
 };
 
 export const ResultsStatistics: React.FC<ResultsStatisticsProps> = ({ results, onOpenQuantitativeAnalysis }) => {
-  const tiles = results.tiles ?? [];
+  const tiles = Array.isArray(results.tiles) ? results.tiles : [];
   const mosaicTile = tiles.find(tile => tile.status === 'mosaic' || tile.tile_id === 'mosaic');
   const tileAreaMetrics = deriveTileAreaMetrics(tiles as any);
 
-  const totalTiles = tiles.length;
-  const tilesWithDetections = tiles.filter(tile => tile.mining_detected || tile.miningDetected).length;
-  const totalMineBlocks = tiles.reduce((sum, tile) => sum + (tile.num_mine_blocks ?? 0), 0);
+  const totalTiles = results.totalTiles ?? tiles.length;
+  const tilesWithDetections = results.tilesWithMining
+    ?? tiles.filter(tile => tile.mining_detected || tile.miningDetected).length;
+  const totalMineBlocks = results.detectionCount
+    ?? tiles.reduce((sum, tile) => sum + (tile.num_mine_blocks ?? 0), 0);
   const confidenceMetrics = deriveConfidenceMetrics(results);
 
-  const summary = results.summary ?? {};
-  const summaryTotalTiles = summary.total_tiles ?? totalTiles;
-  const summaryTilesWithDetections = summary.tiles_with_detections ?? tilesWithDetections;
-  const summaryMineBlocks = summary.mine_block_count ?? totalMineBlocks;
+  const summary = (results.summary ?? {}) as Record<string, any>;
+  const summaryTotalTiles = results.totalTiles ?? parseNumeric(summary.total_tiles) ?? totalTiles;
+  const summaryTilesWithDetections = results.tilesWithMining
+    ?? parseNumeric(summary.tiles_with_detections)
+    ?? tilesWithDetections;
+  const summaryMineBlocks = results.detectionCount
+    ?? parseNumeric(summary.mine_block_count)
+    ?? totalMineBlocks;
   const statistics = results.statistics as Record<string, unknown> | undefined;
   const fallbackCoverageValue = parseNumeric(summary.mining_percentage)
     ?? parseNumeric(statistics?.['coveragePercentage'])
@@ -108,10 +102,9 @@ export const ResultsStatistics: React.FC<ResultsStatisticsProps> = ({ results, o
     : null;
   const summaryCoverage = tileAreaMetrics.coveragePct ?? normalizedFallbackCoverage ?? 0;
 
-  const summaryMiningAreaM2FromSummary = parseNumeric(summary.mining_area_m2);
   const summaryMiningAreaM2 = tileAreaMetrics.totalMiningAreaM2 > 0
     ? tileAreaMetrics.totalMiningAreaM2
-    : (summaryMiningAreaM2FromSummary ?? 0);
+    : (results.totalMiningArea?.m2 ?? parseNumeric(summary.mining_area_m2) ?? 0);
 
   const avgConfidencePct = confidenceMetrics.averagePct;
   const maxConfidencePct = confidenceMetrics.maxPct;

@@ -33,6 +33,7 @@ import {
   normalizeConfidenceValue,
   parseNumeric,
 } from '@/lib/analysisMetrics';
+import { normalizeAnalysisResults } from '@/lib/normalizeAnalysisResults';
 
 // Fix Leaflet default marker icons
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -70,7 +71,7 @@ const ResultsPage = () => {
   const { isAuthenticated, loading: authLoading } = useAuth();
   
   const [loading, setLoading] = useState(true);
-  const [results, setResults] = useState<any>(null);
+  const [analysisData, setAnalysisData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
   const [splitPosition, setSplitPosition] = useState(60); // 60% left, 40% right
@@ -83,6 +84,8 @@ const ResultsPage = () => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const results = useMemo(() => normalizeAnalysisResults(analysisData), [analysisData]);
+  const analysisStatus = analysisData?.status ?? results?.status;
 
   const handleMouseDown = useCallback(() => {
     setIsDragging(true);
@@ -163,7 +166,7 @@ const ResultsPage = () => {
             const savedAnalysis = await getAnalysisById(analysisId);
             console.log('✅ Loaded analysis from database');
             console.log('📊 Database data:', savedAnalysis);
-            setResults(savedAnalysis.results);
+            setAnalysisData(savedAnalysis.results);
             setLoading(false);
             setIsSaved(true); // Mark as already saved
             return;
@@ -178,7 +181,7 @@ const ResultsPage = () => {
         console.log('✅ Loaded analysis from Python backend (live)');
         console.log('📊 Results data:', data);
         console.log('================================================================\n');
-        setResults(data);
+        setAnalysisData(data);
         setLoading(false);
       } catch (err: any) {
         console.error('❌ Error fetching results:', err);
@@ -205,8 +208,8 @@ const ResultsPage = () => {
       if (!results || !analysisId || isSaved || saveAttemptedRef.current) return;
 
       // Only save completed analyses
-      if (results.status && results.status !== 'completed') {
-        console.log(`⏭️  Skipping auto-save - analysis status: ${results.status}`);
+      if (analysisStatus && analysisStatus !== 'completed') {
+        console.log(`⏭️  Skipping auto-save - analysis status: ${analysisStatus}`);
         return;
       }
 
@@ -217,14 +220,13 @@ const ResultsPage = () => {
         console.log('\n💾 ==================== AUTO-SAVE TO DATABASE ====================');
         console.log(`📋 Analysis ID: ${analysisId}`);
         console.log(`📊 Data to save:`, {
-          status: results.status,
-          totalTiles: results.total_tiles || results.tiles?.length,
-          tilesWithMining: results.tiles?.filter((t: any) => t.mining_detected || t.miningDetected)?.length,
-          totalMineBlocks: results.total_mine_blocks || results.merged_block_count,
-          mergedBlockCount: results.merged_block_count,
-          hasMergedBlocks: !!results.merged_blocks,
-          tileCount: results.tiles?.length,
-          hasAnalysisId: !!results.analysis_id
+          status: analysisStatus,
+          totalTiles: results.totalTiles,
+          tilesWithMining: results.tilesWithMining,
+          detectionCount: results.detectionCount,
+          hasMergedBlocks: !!results.mergedBlocks,
+          tileCount: results.tiles.length,
+          hasSummaryAnalysisId: !!results.summary?.analysis_id
         });
         
         const savePayload = {
@@ -259,7 +261,7 @@ const ResultsPage = () => {
     };
 
     saveToDatabase();
-  }, [results, analysisId, isSaved]);
+  }, [results, analysisId, isSaved, analysisStatus]);
 
   // Initialize map
   useEffect(() => {
@@ -321,13 +323,13 @@ const ResultsPage = () => {
     return () => window.clearTimeout(timeout);
   }, [fullscreen, splitPosition, !!results]);
 
-  const summary = results?.summary ?? {};
+  const summary = (results?.summary ?? {}) as Record<string, any>;
   const tileAreaMetrics = useMemo(() => deriveTileAreaMetrics(results?.tiles), [results?.tiles]);
   const confidenceMetrics = useMemo(() => deriveConfidenceMetrics(results), [results]);
 
-  const summaryTotalTiles = summary.total_tiles ?? results?.tiles?.length ?? 0;
-  const summaryTilesWithDetections = summary.tiles_with_detections ?? results?.tiles?.filter((t: any) => t.mining_detected || t.miningDetected)?.length ?? 0;
-  const summaryMineBlocks = summary.mine_block_count ?? results?.merged_block_count ?? results?.total_mine_blocks ?? 0;
+  const summaryTotalTiles = results?.totalTiles ?? 0;
+  const summaryTilesWithDetections = results?.tilesWithMining ?? 0;
+  const summaryMineBlocks = results?.detectionCount ?? 0;
 
   const fallbackCoverage = summary.mining_percentage ?? results?.statistics?.coveragePercentage ?? results?.statistics?.coverage_percentage;
   const normalizedFallbackCoverage = typeof fallbackCoverage === 'number'
@@ -335,28 +337,9 @@ const ResultsPage = () => {
     : null;
   const summaryCoverage = tileAreaMetrics.coveragePct ?? normalizedFallbackCoverage ?? 0;
 
-  const summaryMiningAreaM2FromSummary = (() => {
-    const areaFromSummary = parseNumeric((summary as any).mining_area_m2);
-    if (areaFromSummary !== undefined) {
-      return areaFromSummary;
-    }
-    const totalMiningArea = (results as any)?.totalMiningArea ?? (results as any)?.total_mining_area;
-    if (totalMiningArea) {
-      const ha = parseNumeric(totalMiningArea.hectares ?? totalMiningArea.hectare);
-      if (ha !== undefined) {
-        return ha * 10_000;
-      }
-      const m2 = parseNumeric(totalMiningArea.m2 ?? totalMiningArea.squareMeters);
-      if (m2 !== undefined) {
-        return m2;
-      }
-    }
-    return undefined;
-  })();
-
   const summaryMiningAreaM2 = tileAreaMetrics.totalMiningAreaM2 > 0
     ? tileAreaMetrics.totalMiningAreaM2
-    : summaryMiningAreaM2FromSummary ?? 0;
+    : results?.totalMiningArea?.m2 ?? parseNumeric(summary.mining_area_m2) ?? 0;
 
   const summaryMiningAreaHa = summaryMiningAreaM2 / 10_000;
   const summaryConfidencePct = confidenceMetrics.averagePct ?? null;
@@ -419,8 +402,8 @@ const ResultsPage = () => {
   insightLines.push(`Detections concentrated in ${detectionShare.toFixed(1)}% of processed tiles (${summaryTotalTiles})`);
 
   const mineBlockRows = useMemo(() => {
-    const mergedFeatures = Array.isArray(results?.merged_blocks?.features)
-      ? results!.merged_blocks.features
+    const mergedFeatures = Array.isArray(results?.mergedBlocks?.features)
+      ? results.mergedBlocks.features
       : [];
 
     const mergedRows = mergedFeatures.map((feature: any, index: number) => {
@@ -608,7 +591,7 @@ const ResultsPage = () => {
 
             {/* Statistics Component */}
             <ResultsStatistics 
-              results={{...results, analysis_id: analysisId}}
+              results={{ ...results, analysis_id: analysisId ?? undefined }}
               onOpenQuantitativeAnalysis={handleOpenQuantitativeAnalysis}
             />
 

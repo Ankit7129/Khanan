@@ -65,6 +65,7 @@ import {
   deriveConfidenceMetrics,
   normalizeConfidenceValue,
 } from '@/lib/analysisMetrics';
+import { normalizeAnalysisResults } from '@/lib/normalizeAnalysisResults';
 
 const DEFAULT_ROWS_PER_PAGE = 10;
 
@@ -180,77 +181,60 @@ const formatAverageDuration = (seconds?: number | null): string => {
 
 
 const extractSummary = (analysis: AnalysisHistoryRecord | null): DerivedSummary | null => {
-  const results = (analysis?.results ?? null) as any;
+  if (!analysis?.results) {
+    return null;
+  }
+
+  const results = normalizeAnalysisResults(analysis.results);
   if (!results) {
     return null;
   }
 
-  const summary = results.summary ?? {};
-  const statistics = results.statistics ?? results.summary_statistics ?? {};
-  const tileMetrics = deriveTileAreaMetrics(Array.isArray(results.tiles) ? results.tiles : undefined);
+  const summary = (results.summary ?? {}) as Record<string, unknown>;
+  const statistics = (results.statistics ?? {}) as Record<string, unknown>;
+  const tiles = Array.isArray(results.tiles) ? results.tiles : [];
+  const tileMetrics = deriveTileAreaMetrics(tiles);
 
   const detectionCount = results.detectionCount
-    ?? summary.mine_block_count
-    ?? results.merged_block_count
-    ?? results.total_mine_blocks
-    ?? summary.total_mine_blocks
+    ?? results.detections?.length
     ?? 0;
 
-  const totalTiles = summary.total_tiles
-    ?? results.totalTiles
-    ?? results.total_tiles
-    ?? statistics.totalTiles
-    ?? statistics.total_tiles
-    ?? (Array.isArray(results.tiles) ? results.tiles.length : 0);
+  const totalTiles = results.totalTiles ?? tiles.length;
 
-  const tilesWithDetections = summary.tiles_with_detections
-    ?? results.tilesWithMining
-    ?? statistics.tilesWithDetections
-    ?? statistics.tiles_with_detections
-    ?? (Array.isArray(results.tiles)
-      ? results.tiles.filter((tile: any) => tile?.mining_detected || tile?.miningDetected)?.length ?? 0
-      : 0);
+  const tilesWithDetections = results.tilesWithMining
+    ?? tiles.filter((tile: any) => tile?.mining_detected || tile?.miningDetected).length;
 
-  const fallbackCoverageValue = parseNumeric(summary.mining_percentage)
-    ?? parseNumeric(statistics.coveragePercentage)
-    ?? parseNumeric(statistics.coverage_percentage);
-  const coveragePct = tileMetrics.coveragePct
-    ?? (fallbackCoverageValue !== undefined ? (fallbackCoverageValue > 1 ? fallbackCoverageValue : fallbackCoverageValue * 100) : null);
-
-  const totalMiningArea = results.totalMiningArea ?? results.total_mining_area ?? {};
-  const miningAreaM2FromSummary = parseNumeric(summary.mining_area_m2);
-  const miningAreaM2FromTotals = (() => {
-    const hectares = parseNumeric(totalMiningArea.hectares ?? totalMiningArea.hectare);
-    if (hectares !== undefined) {
-      return hectares * 10_000;
+  const coverageCandidate = (() => {
+    const fromStats = parseNumeric(statistics['coveragePercentage'])
+      ?? parseNumeric(statistics['coverage_percentage']);
+    if (typeof fromStats === 'number') {
+      return fromStats;
     }
-    const meters = parseNumeric(totalMiningArea.m2 ?? totalMiningArea.squareMeters);
-    if (meters !== undefined) {
-      return meters;
-    }
-    return undefined;
+    return parseNumeric(summary.mining_percentage);
   })();
+
+  const coveragePct = tileMetrics.coveragePct
+    ?? (coverageCandidate !== undefined
+      ? (coverageCandidate > 1 ? coverageCandidate : coverageCandidate * 100)
+      : null);
 
   const miningAreaM2 = tileMetrics.totalMiningAreaM2 > 0
     ? tileMetrics.totalMiningAreaM2
-    : miningAreaM2FromSummary ?? miningAreaM2FromTotals ?? null;
+    : results.totalMiningArea?.m2 ?? parseNumeric(summary.mining_area_m2) ?? null;
 
   const miningAreaHa = typeof miningAreaM2 === 'number' ? miningAreaM2 / 10_000 : null;
   const miningAreaKm2 = typeof miningAreaM2 === 'number' ? miningAreaM2 / 1_000_000 : null;
 
   const confidenceMetrics = deriveConfidenceMetrics(results);
-  const avgConfidencePct = confidenceMetrics.averagePct;
-  const maxConfidencePct = confidenceMetrics.maxPct;
-  const minConfidencePct = confidenceMetrics.minPct;
 
   return {
     totalTiles,
     tilesWithDetections,
     detectionCount,
     coveragePct,
-    avgConfidencePct,
-    maxConfidencePct,
-    minConfidencePct,
+    avgConfidencePct: confidenceMetrics.averagePct,
+    maxConfidencePct: confidenceMetrics.maxPct,
+    minConfidencePct: confidenceMetrics.minPct,
     miningAreaHa,
     miningAreaKm2,
     confidenceSource: confidenceMetrics.source,
@@ -258,10 +242,15 @@ const extractSummary = (analysis: AnalysisHistoryRecord | null): DerivedSummary 
 };
 
 const buildMineBlockRows = (analysis: AnalysisHistoryRecord | null): MineBlockRow[] => {
-  const results = (analysis?.results ?? null) as any;
+  if (!analysis?.results) {
+    return [];
+  }
+
+  const results = normalizeAnalysisResults(analysis.results);
   if (!results) {
     return [];
   }
+
   const rowsMap = new Map<string, MineBlockRow>();
 
   const registerRow = (row: MineBlockRow) => {
@@ -271,7 +260,7 @@ const buildMineBlockRows = (analysis: AnalysisHistoryRecord | null): MineBlockRo
       rowsMap.set(key, {
         ...existing,
         ...row,
-        areaHa: row.areaHa || existing.areaHa,
+        areaHa: row.areaHa ?? existing.areaHa,
         confidencePct: row.confidencePct ?? existing.confidencePct,
         tileId: row.tileId ?? existing.tileId,
         persistentId: row.persistentId ?? existing.persistentId,
@@ -288,68 +277,58 @@ const buildMineBlockRows = (analysis: AnalysisHistoryRecord | null): MineBlockRo
     rowsMap.set(key, row);
   };
 
-  const blockTrackingBlocks = results.blockTracking?.blocks
-    ?? results.block_tracking?.blocks
-    ?? results.trackedBlocks
-    ?? results.tracked_blocks;
+  const blockTrackingBlocks = Array.isArray(results.blockTracking?.blocks)
+    ? results.blockTracking.blocks
+    : [];
 
-  if (Array.isArray(blockTrackingBlocks)) {
-    blockTrackingBlocks.forEach((block: any, index: number) => {
-      const fallbackId = `tracked-${index}`;
-      const rowId = block.persistentId
-        ?? block.persistent_id
-        ?? block.blockId
-        ?? block.block_id
-        ?? fallbackId;
+  blockTrackingBlocks.forEach((block: any, index: number) => {
+    const fallbackId = `tracked-${index}`;
+    const rowId = block.persistentId
+      ?? block.persistent_id
+      ?? block.blockId
+      ?? block.block_id
+      ?? fallbackId;
 
-      const centroidArray = Array.isArray(block.centroid)
-        ? block.centroid
-        : Array.isArray(block.label_position)
-          ? block.label_position
-          : undefined;
-
-      const boundsArray = Array.isArray(block.bounds) && block.bounds.length === 4
-        ? block.bounds.map((value: any) => Number(value)) as [number, number, number, number]
+    const centroidArray = Array.isArray(block.centroid)
+      ? block.centroid
+      : Array.isArray(block.label_position)
+        ? block.label_position
         : undefined;
 
-      const areaHa = (() => {
-        if (typeof block.areaHa === 'number') {
-          return block.areaHa;
-        }
-        const areaM2 = parseNumeric(block.areaM2 ?? block.area_m2);
-        if (areaM2 !== undefined) {
-          return areaM2 / 10000;
-        }
-        return 0;
-      })();
+    const boundsArray = Array.isArray(block.bounds) && block.bounds.length === 4
+      ? block.bounds.map((value: any) => Number(value)) as [number, number, number, number]
+      : undefined;
 
-      registerRow({
-        id: String(rowId),
-        label: block.name || block.label || block.blockId || block.block_id || `Block ${index + 1}`,
-        tileId: block.tileId || block.tile_id || undefined,
-        areaHa,
-        confidencePct: normalizeConfidenceValue(block.avgConfidence ?? block.avg_confidence ?? block.confidence),
-        source: 'Tile',
-        persistentId: block.persistentId || block.persistent_id || undefined,
-        blockIndex: typeof block.sequence === 'number' ? block.sequence : block.block_index,
-        centroidLat: parseNumeric(centroidArray?.[1]),
-        centroidLon: parseNumeric(centroidArray?.[0]),
-        bounds: boundsArray,
-        isMerged: Boolean(block.isMerged ?? block.is_merged)
-      });
+    const areaHa = (() => {
+      if (typeof block.areaHa === 'number') {
+        return block.areaHa;
+      }
+      const areaM2 = parseNumeric(block.areaM2 ?? block.area_m2);
+      if (areaM2 !== undefined) {
+        return areaM2 / 10_000;
+      }
+      return 0;
+    })();
+
+    registerRow({
+      id: String(rowId),
+      label: block.name || block.label || block.blockId || block.block_id || `Block ${index + 1}`,
+      tileId: block.tileId || block.tile_id || undefined,
+      areaHa,
+      confidencePct: normalizeConfidenceValue(block.avgConfidence ?? block.avg_confidence ?? block.confidence),
+      source: 'Tile',
+      persistentId: block.persistentId || block.persistent_id || undefined,
+      blockIndex: typeof block.sequence === 'number' ? block.sequence : block.block_index,
+      centroidLat: parseNumeric(centroidArray?.[1]),
+      centroidLon: parseNumeric(centroidArray?.[0]),
+      bounds: boundsArray,
+      isMerged: Boolean(block.isMerged ?? block.is_merged)
     });
-  }
+  });
 
-  const mergedCollection = results.mergedBlocks
-    ?? results.merged_blocks
-    ?? results.merged_block_collection
-    ?? results.mergedBlockGeoJson;
-
-  const mergedFeatures = Array.isArray(mergedCollection?.features)
-    ? mergedCollection.features
-    : Array.isArray(mergedCollection)
-      ? mergedCollection
-      : [];
+  const mergedFeatures = Array.isArray(results.mergedBlocks?.features)
+    ? results.mergedBlocks.features
+    : [];
 
   mergedFeatures.forEach((feature: any, index: number) => {
     const props = feature?.properties ?? feature ?? {};
@@ -376,7 +355,7 @@ const buildMineBlockRows = (analysis: AnalysisHistoryRecord | null): MineBlockRo
       }
       const areaM2 = parseNumeric(props.area_m2 ?? props.areaM2);
       if (areaM2 !== undefined) {
-        return areaM2 / 10000;
+        return areaM2 / 10_000;
       }
       return 0;
     })();
@@ -388,7 +367,7 @@ const buildMineBlockRows = (analysis: AnalysisHistoryRecord | null): MineBlockRo
       areaHa,
       confidencePct: normalizeConfidenceValue(props.avg_confidence ?? props.confidence ?? props.mean_confidence),
       source: 'Merged',
-      isMerged: Boolean(props.is_merged ?? true),
+      isMerged: true,
       persistentId: props.persistent_id || props.persistentId || undefined,
       blockIndex: props.block_index ?? props.index,
       centroidLat: parseNumeric(centroidArray?.[1] ?? props.centroid_lat),
@@ -397,76 +376,79 @@ const buildMineBlockRows = (analysis: AnalysisHistoryRecord | null): MineBlockRo
     });
   });
 
-  if (Array.isArray(results.tiles)) {
-    results.tiles.forEach((tile: any, tileIdx: number) => {
-      const tileBlocks = Array.isArray(tile.mine_blocks)
-        ? tile.mine_blocks
-        : Array.isArray(tile.blocks)
-          ? tile.blocks
-          : [];
+  const tiles = Array.isArray(results.tiles) ? results.tiles : [];
 
-      if (!tileBlocks.length) {
-        return;
-      }
+  tiles.forEach((tile: any, tileIdx: number) => {
+    const tileBlocks = Array.isArray(tile.mine_blocks) ? tile.mine_blocks : [];
+    if (!tileBlocks.length) {
+      return;
+    }
 
-      const tileLabel = tile.tile_label
-        ?? tile.tileLabel
-        ?? tile.tile_id
-        ?? tile.tileId
-        ?? (typeof tile.tile_index === 'number' ? `tile_${tile.tile_index}` : `Tile ${tileIdx + 1}`);
+    const tileLabel = tile.tile_label
+      ?? tile.tileLabel
+      ?? tile.tile_id
+      ?? tile.tileId
+      ?? (typeof tile.tile_index === 'number' ? `tile_${tile.tile_index}` : `Tile ${tileIdx + 1}`);
 
-      const displayTileId = tile.tile_id ?? tile.tileId ?? tileLabel;
+    const displayTileId = tile.tile_id ?? tile.tileId ?? tileLabel;
 
-      tileBlocks.forEach((block: any, blockIdx: number) => {
-        const props = block?.properties ?? block ?? {};
-        const rowId = props.persistent_id
-          ?? props.persistentId
-          ?? props.block_id
-          ?? props.blockId
-          ?? `${displayTileId}-block-${blockIdx + 1}`;
+    tileBlocks.forEach((block: any, blockIdx: number) => {
+      const props = block?.properties ?? block ?? {};
+      const rowId = props.persistent_id
+        ?? props.persistentId
+        ?? props.block_id
+        ?? props.blockId
+        ?? `${displayTileId}-block-${blockIdx + 1}`;
 
-        const centroidArray = Array.isArray(props.label_position)
-          ? props.label_position
-          : Array.isArray(props.centroid)
-            ? props.centroid
-            : undefined;
-
-        const boundsArray = Array.isArray(props.bbox) && props.bbox.length === 4
-          ? props.bbox.map((value: any) => Number(value)) as [number, number, number, number]
+      const centroidArray = Array.isArray(props.label_position)
+        ? props.label_position
+        : Array.isArray(props.centroid)
+          ? props.centroid
           : undefined;
 
-        const areaHa = (() => {
-          const directHa = parseNumeric(props.area_ha ?? props.areaHa);
-          if (directHa !== undefined) {
-            return directHa;
-          }
-          const areaM2 = parseNumeric(props.area_m2 ?? props.areaM2);
-          if (areaM2 !== undefined) {
-            return areaM2 / 10000;
-          }
-          return 0;
-        })();
+      const boundsArray = Array.isArray(props.bbox) && props.bbox.length === 4
+        ? props.bbox.map((value: any) => Number(value)) as [number, number, number, number]
+        : undefined;
 
-        registerRow({
-          id: `tile-${rowId}`,
-          label: props.name || `${tileLabel} · Block ${blockIdx + 1}`,
-          tileId: String(displayTileId),
-          areaHa,
-          confidencePct: normalizeConfidenceValue(props.avg_confidence ?? props.confidence ?? props.mean_confidence),
-          source: 'Tile',
-          isMerged: Boolean(props.is_merged),
-          persistentId: props.persistent_id || props.persistentId || undefined,
-          blockIndex: props.block_index ?? props.index,
-          centroidLat: parseNumeric(centroidArray?.[1]),
-          centroidLon: parseNumeric(centroidArray?.[0]),
-          bounds: boundsArray
-        });
+      const areaHa = (() => {
+        const directHa = parseNumeric(props.area_ha ?? props.areaHa);
+        if (directHa !== undefined) {
+          return directHa;
+        }
+        const areaM2 = parseNumeric(props.area_m2 ?? props.areaM2);
+        if (areaM2 !== undefined) {
+          return areaM2 / 10_000;
+        }
+        return 0;
+      })();
+
+      registerRow({
+        id: `tile-${rowId}`,
+        label: props.name || `${tileLabel} · Block ${blockIdx + 1}`,
+        tileId: String(displayTileId),
+        areaHa,
+        confidencePct: normalizeConfidenceValue(props.avg_confidence ?? props.confidence ?? props.mean_confidence),
+        source: 'Tile',
+        isMerged: Boolean(props.is_merged),
+        persistentId: props.persistent_id || props.persistentId || undefined,
+        blockIndex: props.block_index ?? props.index,
+        centroidLat: parseNumeric(centroidArray?.[1]),
+        centroidLon: parseNumeric(centroidArray?.[0]),
+        bounds: boundsArray
       });
     });
-  }
+  });
 
   const rows = Array.from(rowsMap.values());
-  rows.sort((a, b) => (b.areaHa ?? 0) - (a.areaHa ?? 0));
+  rows.sort((a, b) => {
+    if (a.blockIndex !== undefined && b.blockIndex !== undefined) {
+      return a.blockIndex - b.blockIndex;
+    }
+    if (a.source !== b.source) {
+      return a.source === 'Merged' ? -1 : 1;
+    }
+    return (b.areaHa ?? 0) - (a.areaHa ?? 0);
+  });
   return rows;
 };
 
@@ -955,53 +937,31 @@ const AnalysisHistoryPage: React.FC = () => {
               </TableRow>
             ) : (
               analyses.map((analysis) => {
-                const analysisResults: any = analysis.results ?? {};
-                const summary = analysisResults.summary ?? {};
-                const statistics = analysisResults.statistics ?? {};
-                const tileMetrics = deriveTileAreaMetrics(Array.isArray(analysisResults.tiles) ? analysisResults.tiles : undefined);
+                const normalizedResults = normalizeAnalysisResults(analysis.results);
+                const summary = (normalizedResults?.summary ?? {}) as Record<string, unknown>;
+                const tileMetrics = deriveTileAreaMetrics(normalizedResults?.tiles);
 
-                const detectionCount = analysisResults.detectionCount
-                  ?? summary.mine_block_count
-                  ?? analysisResults.merged_block_count
-                  ?? 0;
+                const detectionCount = normalizedResults?.detectionCount ?? normalizedResults?.detections?.length ?? 0;
 
                 const fallbackCoverageValue = parseNumeric(summary.mining_percentage)
-                  ?? parseNumeric(statistics.coveragePercentage)
-                  ?? parseNumeric(statistics.coverage_percentage);
+                  ?? parseNumeric(normalizedResults?.statistics?.coveragePercentage)
+                  ?? parseNumeric(normalizedResults?.statistics?.coverage_percentage);
                 const coveragePct = tileMetrics.coveragePct
-                  ?? (fallbackCoverageValue !== undefined ? (fallbackCoverageValue > 1 ? fallbackCoverageValue : fallbackCoverageValue * 100) : null);
+                  ?? (fallbackCoverageValue !== undefined
+                    ? (fallbackCoverageValue > 1 ? fallbackCoverageValue : fallbackCoverageValue * 100)
+                    : null);
 
-                const miningAreaHaFromSummary = (() => {
-                  const area = parseNumeric(summary.mining_area_m2);
-                  return area !== undefined ? area / 10_000 : null;
-                })();
-                const miningAreaHaFromTotals = (() => {
-                  const totalMiningArea = analysisResults.totalMiningArea ?? analysisResults.total_mining_area ?? {};
-                  const hectares = parseNumeric(totalMiningArea.hectares ?? totalMiningArea.hectare);
-                  if (hectares !== undefined) {
-                    return hectares;
-                  }
-                  const meters = parseNumeric(totalMiningArea.m2 ?? totalMiningArea.squareMeters);
-                  if (meters !== undefined) {
-                    return meters / 10_000;
-                  }
-                  return null;
-                })();
                 const totalMiningAreaHa = tileMetrics.totalMiningAreaM2 > 0
                   ? tileMetrics.totalMiningAreaM2 / 10_000
-                  : miningAreaHaFromSummary ?? miningAreaHaFromTotals ?? null;
+                  : typeof normalizedResults?.totalMiningArea?.hectares === 'number'
+                    ? normalizedResults.totalMiningArea.hectares
+                    : (typeof normalizedResults?.totalMiningArea?.m2 === 'number'
+                      ? normalizedResults.totalMiningArea.m2 / 10_000
+                      : null);
 
-                const tilesWithDetections = summary.tiles_with_detections
-                  ?? analysisResults.tilesWithMining
-                  ?? statistics.tilesWithDetections
-                  ?? statistics.tiles_with_detections
-                  ?? 0;
-                const totalTiles = summary.total_tiles
-                  ?? analysisResults.totalTiles
-                  ?? analysisResults.total_tiles
-                  ?? analysisResults.tiles?.length
-                  ?? 0;
-                const confidenceMetrics = deriveConfidenceMetrics(analysisResults);
+                const tilesWithDetections = normalizedResults?.tilesWithMining ?? 0;
+                const totalTiles = normalizedResults?.totalTiles ?? (normalizedResults?.tiles?.length ?? 0);
+                const confidenceMetrics = deriveConfidenceMetrics(normalizedResults ?? {});
                 const avgConfidence = confidenceMetrics.averagePct;
                 const maxConfidence = confidenceMetrics.maxPct;
                 const startTime = analysis.startTime ? new Date(analysis.startTime) : null;

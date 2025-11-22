@@ -43,6 +43,7 @@ import apiClient from '@/services/apiClient';
 import { stopAnalysis } from '@/services/historyService';
 import { useAnalysis } from '@/contexts/AnalysisContext';
 import { TileOverlayManager } from './TileOverlayManager';
+import { normalizeAnalysisResults } from '@/lib/normalizeAnalysisResults';
 
 // Fix Leaflet default marker icons
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -175,6 +176,7 @@ interface AnalysisStatus {
   area_km2?: number;
   tiles?: any[];
   error?: string;
+  results?: unknown;
 }
 
 export const AnalysisProgress: React.FC<AnalysisProgressProps> = ({
@@ -281,8 +283,10 @@ export const AnalysisProgress: React.FC<AnalysisProgressProps> = ({
         if (data.status === 'completed' || data.progress >= 100) {
           clearInterval(interval);
           clearInterval(timeInterval);
-          updateAnalysisStatus('completed', data);
-          setTimeout(() => onComplete(data), 1000);
+          const normalizedResults = normalizeAnalysisResults(data?.results ?? data);
+          const completionPayload = normalizedResults ?? data;
+          updateAnalysisStatus('completed', completionPayload);
+          setTimeout(() => onComplete(completionPayload), 1000);
         } else if (data.status === 'failed' || data.error) {
           clearInterval(interval);
           clearInterval(timeInterval);
