@@ -74,12 +74,12 @@ export const TileOverlayManager: React.FC<TileOverlayManagerProps> = ({
     // bounds is [[lon, lat], [lon, lat], ...] array of corner coordinates
     const lats = bounds.map(b => b[1]);
     const lngs = bounds.map(b => b[0]);
-    
+
     const south = Math.min(...lats);
     const north = Math.max(...lats);
     const west = Math.min(...lngs);
     const east = Math.max(...lngs);
-    
+
     // Return in Leaflet format: [[south, west], [north, east]]
     return [[south, west], [north, east]];
   };
@@ -134,7 +134,7 @@ export const TileOverlayManager: React.FC<TileOverlayManagerProps> = ({
         try {
           existingLayer.setUrl(imageUrl);
           const leafletBounds = L.latLngBounds(bounds);
-          
+
           if (leafletBounds && leafletBounds.isValid()) {
             existingLayer.setBounds(leafletBounds);
             existingLayer.setOpacity(localSatelliteOpacity);
@@ -149,7 +149,7 @@ export const TileOverlayManager: React.FC<TileOverlayManagerProps> = ({
         // Create new layer
         try {
           const leafletBounds = L.latLngBounds(bounds);
-          
+
           if (!leafletBounds || !leafletBounds.isValid()) {
             console.warn(`⚠️ Invalid bounds for satellite tile ${tile.index}:`, bounds);
             return;
@@ -235,15 +235,15 @@ export const TileOverlayManager: React.FC<TileOverlayManagerProps> = ({
         try {
           existingLayer.setUrl(heatmapUrl);
           const leafletBounds = L.latLngBounds(bounds);
-          
+
           if (!leafletBounds || !leafletBounds.isValid()) {
             console.warn(`⚠️ Invalid bounds for tile ${tile.index}:`, bounds);
             return;
           }
-          
+
           existingLayer.setBounds(leafletBounds);
           existingLayer.setOpacity(localHeatmapOpacity);
-          
+
           // Ensure map exists and is a valid Leaflet map
           if (isMapReady(readyMap) && !readyMap.hasLayer(existingLayer)) {
             readyMap.addLayer(existingLayer);
@@ -255,13 +255,13 @@ export const TileOverlayManager: React.FC<TileOverlayManagerProps> = ({
         // Create new heatmap overlay
         try {
           const leafletBounds = L.latLngBounds(bounds);
-          
+
           // Validate bounds before creating overlay
           if (!leafletBounds || !leafletBounds.isValid()) {
             console.warn(`⚠️ Invalid bounds for tile ${tile.index}:`, bounds);
             return;
           }
-          
+
           const heatmapOverlay = L.imageOverlay(heatmapUrl, leafletBounds, {
             opacity: localHeatmapOpacity,
             interactive: false,
@@ -283,10 +283,10 @@ export const TileOverlayManager: React.FC<TileOverlayManagerProps> = ({
           // Add tooltip with prediction info
           const miningDetected = tile.miningDetected || tile.mining_detected || false;
           const miningPercentage = tile.miningPercentage || tile.mining_percentage || 0;
-          const miningInfo = miningDetected 
+          const miningInfo = miningDetected
             ? `Mining detected<br/>Coverage: ${miningPercentage.toFixed(1)}%<br/>Confidence: ${(tile.confidence * 100).toFixed(1)}%<br/>Blocks: ${tile.num_mine_blocks || 0}`
             : `No mining detected`;
-          
+
           try {
             heatmapOverlay.bindTooltip(
               `Tile ${tile.index}<br/>${miningInfo}`,
@@ -431,32 +431,69 @@ export const TileOverlayManager: React.FC<TileOverlayManagerProps> = ({
   }, [map]);
 
   return (
-    <Paper 
-      elevation={3} 
-      sx={{ 
-        position: 'absolute', 
-        top: 16, 
-        right: 16, 
-        zIndex: 1000, 
-        p: 2, 
+    <Paper
+      elevation={3}
+      sx={{
+        position: 'absolute',
+        top: 16,
+        right: 16,
+        zIndex: 1000,
+        p: 2.5,
         minWidth: 280,
         maxWidth: 320,
-        background: 'rgba(26, 26, 46, 0.95)',
-        border: '1px solid rgba(251, 191, 36, 0.2)',
-        backdropFilter: 'blur(10px)'
+        backgroundColor: '#ffffff',
+        border: '1px solid #e2e8f0',
+        boxShadow: '0 18px 36px rgba(15, 23, 42, 0.12)',
+        borderRadius: 2
       }}
     >
-      <Typography variant="h6" sx={{ mb: 2, color: '#fcd34d', fontWeight: 'bold' }}>
+      <Typography variant="h6" sx={{ mb: 2, color: '#0f172a', fontWeight: 700 }}>
         Layer Controls
       </Typography>
 
       {/* Statistics */}
       <Box sx={{ mb: 2 }}>
         <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mb: 1 }}>
-          <Chip size="small" label={`${stats.total} tiles`} sx={{ bgcolor: 'rgba(251, 191, 36, 0.1)', color: '#fcd34d' }} />
-          <Chip size="small" label={`${stats.withImages} images`} sx={{ bgcolor: 'rgba(59, 130, 246, 0.1)', color: '#60a5fa' }} />
-          <Chip size="small" label={`${stats.withHeatmaps} heatmaps`} sx={{ bgcolor: 'rgba(168, 85, 247, 0.1)', color: '#c084fc' }} />
-          <Chip size="small" label={`${stats.withDetections} detections`} sx={{ bgcolor: 'rgba(239, 68, 68, 0.1)', color: '#fca5a5' }} />
+          <Chip
+            size="small"
+            label={`${stats.total} tiles`}
+            sx={{
+              backgroundColor: '#f8fafc',
+              border: '1px solid #e2e8f0',
+              color: '#0f172a',
+              fontWeight: 600
+            }}
+          />
+          <Chip
+            size="small"
+            label={`${stats.withImages} images`}
+            sx={{
+              backgroundColor: '#e0f2fe',
+              border: '1px solid #bae6fd',
+              color: '#0f172a',
+              fontWeight: 600
+            }}
+          />
+          <Chip
+            size="small"
+            label={`${stats.withHeatmaps} heatmaps`}
+            sx={{
+              backgroundColor: '#fdf4ff',
+              border: '1px solid #f5d0fe',
+              color: '#701a75',
+              fontWeight: 600
+            }}
+          />
+          <Chip
+            size="small"
+            label={`${stats.withDetections} detections`}
+            sx={{
+              backgroundColor: '#fee2e2',
+              border: '1px solid #fecaca',
+              color: '#b91c1c',
+              fontWeight: 600
+            }}
+          />
         </Stack>
       </Box>
 
@@ -464,34 +501,34 @@ export const TileOverlayManager: React.FC<TileOverlayManagerProps> = ({
       <Stack spacing={1} sx={{ mb: 2 }}>
         <FormControlLabel
           control={
-            <Switch 
-              checked={showSatellite} 
+            <Switch
+              checked={showSatellite}
               onChange={(e) => setShowSatellite(e.target.checked)}
               sx={{
-                '& .MuiSwitch-switchBase.Mui-checked': { color: '#fbbf24' },
-                '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#fbbf24' }
+                '& .MuiSwitch-switchBase.Mui-checked': { color: '#2563eb' },
+                '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#2563eb' }
               }}
             />
           }
-          label={<Typography sx={{ color: '#fcd34d', fontSize: '0.875rem' }}>Satellite Tiles</Typography>}
+          label={<Typography sx={{ color: '#0f172a', fontSize: '0.875rem', fontWeight: 600 }}>Satellite Tiles</Typography>}
         />
         <FormControlLabel
           control={
-            <Switch 
-              checked={showHeatmap} 
+            <Switch
+              checked={showHeatmap}
               onChange={(e) => setShowHeatmap(e.target.checked)}
               sx={{
-                '& .MuiSwitch-switchBase.Mui-checked': { color: '#a855f7' },
-                '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#a855f7' }
+                '& .MuiSwitch-switchBase.Mui-checked': { color: '#7c3aed' },
+                '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#7c3aed' }
               }}
             />
           }
-          label={<Typography sx={{ color: '#c084fc', fontSize: '0.875rem' }}>Probability Heatmap</Typography>}
+          label={<Typography sx={{ color: '#4c1d95', fontSize: '0.875rem', fontWeight: 600 }}>Probability Heatmap</Typography>}
         />
         <FormControlLabel
           control={
-            <Switch 
-              checked={showPolygons} 
+            <Switch
+              checked={showPolygons}
               onChange={(e) => setShowPolygons(e.target.checked)}
               sx={{
                 '& .MuiSwitch-switchBase.Mui-checked': { color: '#ef4444' },
@@ -499,14 +536,14 @@ export const TileOverlayManager: React.FC<TileOverlayManagerProps> = ({
               }}
             />
           }
-          label={<Typography sx={{ color: '#fca5a5', fontSize: '0.875rem' }}>Mine Blocks</Typography>}
+          label={<Typography sx={{ color: '#991b1b', fontSize: '0.875rem', fontWeight: 600 }}>Mine Blocks</Typography>}
         />
       </Stack>
 
       {/* Opacity Sliders */}
       {showSatellite && (
         <Box sx={{ mb: 2 }}>
-          <Typography sx={{ color: '#fcd34d', fontSize: '0.75rem', mb: 1 }}>
+          <Typography sx={{ color: '#475569', fontSize: '0.75rem', fontWeight: 600, mb: 1 }}>
             Satellite Opacity: {(localSatelliteOpacity * 100).toFixed(0)}%
           </Typography>
           <Slider
@@ -520,10 +557,10 @@ export const TileOverlayManager: React.FC<TileOverlayManagerProps> = ({
             max={1}
             step={0.05}
             sx={{
-              color: '#fbbf24',
-              '& .MuiSlider-thumb': { bgcolor: '#fcd34d' },
-              '& .MuiSlider-track': { bgcolor: '#fbbf24' },
-              '& .MuiSlider-rail': { bgcolor: 'rgba(251, 191, 36, 0.2)' }
+              color: '#2563eb',
+              '& .MuiSlider-thumb': { bgcolor: '#1d4ed8' },
+              '& .MuiSlider-track': { bgcolor: '#3b82f6' },
+              '& .MuiSlider-rail': { bgcolor: '#bfdbfe' }
             }}
           />
         </Box>
@@ -531,7 +568,7 @@ export const TileOverlayManager: React.FC<TileOverlayManagerProps> = ({
 
       {showHeatmap && (
         <Box>
-          <Typography sx={{ color: '#c084fc', fontSize: '0.75rem', mb: 1 }}>
+          <Typography sx={{ color: '#4c1d95', fontSize: '0.75rem', fontWeight: 600, mb: 1 }}>
             Heatmap Opacity: {(localHeatmapOpacity * 100).toFixed(0)}%
           </Typography>
           <Slider
@@ -545,10 +582,10 @@ export const TileOverlayManager: React.FC<TileOverlayManagerProps> = ({
             max={1}
             step={0.05}
             sx={{
-              color: '#a855f7',
-              '& .MuiSlider-thumb': { bgcolor: '#c084fc' },
-              '& .MuiSlider-track': { bgcolor: '#a855f7' },
-              '& .MuiSlider-rail': { bgcolor: 'rgba(168, 85, 247, 0.2)' }
+              color: '#7c3aed',
+              '& .MuiSlider-thumb': { bgcolor: '#6d28d9' },
+              '& .MuiSlider-track': { bgcolor: '#9333ea' },
+              '& .MuiSlider-rail': { bgcolor: '#e9d5ff' }
             }}
           />
         </Box>

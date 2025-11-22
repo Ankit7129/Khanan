@@ -92,10 +92,10 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
     <div className="space-y-4 p-4">
       {/* User Info */}
       {user && (
-        <div className="bg-linear-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
+        <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
           <div className="flex items-center space-x-3">
-            <div className="bg-blue-500 rounded-full p-2">
-              <User className="text-white" size={20} />
+            <div className="bg-gray-100 border border-gray-200 rounded-full p-2">
+              <User className="text-gray-600" size={20} />
             </div>
             <div>
               <p className="text-sm text-gray-600">Logged in as</p>
@@ -124,13 +124,13 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
               onKeyPress={handleKeyPress}
               onFocus={() => setShowSuggestions(true)}
               placeholder="Enter city name, region, or coordinates..."
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 text-sm"
               disabled={isSearching}
             />
             <button
               onClick={handleSearch}
               disabled={isSearching}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400 transition-colors font-semibold text-sm"
+              className="px-4 py-2 bg-white text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-100 disabled:bg-gray-200 disabled:text-gray-400 disabled:border-gray-200 transition-colors font-semibold text-sm"
             >
               {isSearching ? 'Searching...' : 'Search'}
             </button>
@@ -152,7 +152,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
                         setSearchQuery(item);
                         handleSearch();
                       }}
-                      className="w-full text-left px-4 py-2 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-b-0"
+                      className="w-full text-left px-4 py-2 hover:bg-gray-100 transition-colors border-b border-gray-100 last:border-b-0"
                     >
                       <p className="text-sm text-gray-700">{item}</p>
                     </button>
@@ -198,7 +198,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
                         }
                         setShowSuggestions(false);
                       }}
-                      className="w-full text-left px-4 py-2 hover:bg-green-50 transition-colors border-b border-gray-100 last:border-b-0"
+                      className="w-full text-left px-4 py-2 hover:bg-gray-100 transition-colors border-b border-gray-100 last:border-b-0"
                     >
                       <p className="font-medium text-gray-900 text-sm">{result.name}</p>
                       <p className="text-xs text-gray-500">{result.displayName}</p>
@@ -224,7 +224,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
         </h3>
         <div className="space-y-2">
           <button
-            className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors font-semibold"
+            className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-white text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors font-semibold"
           >
             <Edit3 size={18} />
             <span>Draw Polygon on Map</span>
@@ -240,11 +240,10 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
         <button
           onClick={onStartAnalysis}
           disabled={!canStartAnalysis}
-          className={`w-full flex items-center justify-center space-x-2 px-4 py-3 rounded-lg font-semibold transition-colors ${
-            canStartAnalysis
-              ? 'bg-green-500 text-white hover:bg-green-600'
-              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-          }`}
+          className={`w-full flex items-center justify-center space-x-2 px-4 py-3 rounded-lg font-semibold transition-colors ${canStartAnalysis
+            ? 'bg-white text-green-600 border border-green-300 hover:bg-green-50'
+            : 'bg-gray-200 text-gray-400 border border-gray-200 cursor-not-allowed'
+            }`}
         >
           <Play size={18} />
           <span>Start Mining Detection</span>

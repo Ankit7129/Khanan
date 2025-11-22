@@ -48,11 +48,10 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({
             <button
               key={tab}
               onClick={() => setActiveTab(tab as any)}
-              className={`flex-1 py-4 px-6 font-semibold transition-colors capitalize ${
-                activeTab === tab
-                  ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
+              className={`flex-1 py-4 px-6 font-semibold transition-colors capitalize ${activeTab === tab
+                  ? 'text-emerald-600 border-b-2 border-emerald-600 bg-emerald-50'
                   : 'text-gray-600 hover:bg-gray-50'
-              }`}
+                }`}
             >
               {tab}
             </button>
@@ -65,12 +64,12 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({
             <div className="space-y-6">
               {/* Statistics Cards */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
                   <div className="flex items-center space-x-3 mb-2">
-                    <MapPin className="text-blue-600" size={24} />
+                    <MapPin className="text-slate-700" size={24} />
                     <h3 className="font-semibold text-gray-700">Total Tiles</h3>
                   </div>
-                  <p className="text-3xl font-bold text-blue-600">{totalTiles}</p>
+                  <p className="text-3xl font-bold text-slate-900">{totalTiles}</p>
                   <p className="text-sm text-gray-600">Analyzed regions</p>
                 </div>
 
@@ -172,7 +171,7 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({
         {/* Footer */}
         <div className="border-t border-gray-200 p-4 flex justify-end space-x-3">
           <button
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-semibold"
+            className="flex items-center space-x-2 px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-700 transition-colors font-semibold"
           >
             <Download size={18} />
             <span>Download Report</span>

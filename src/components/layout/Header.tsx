@@ -37,16 +37,11 @@ import { styled } from '@mui/material/styles';
 import { SidebarTrigger, useSidebar } from '../sidebar';
 import Logo from '@/components/ui/Logo';
 
-// Custom styled components - Dark Royal Blue Theme with Golden Text
+// Custom styled components - light neutral theme accents
 const GradientText = styled(Typography)(({ theme }) => ({
-  background: 'linear-gradient(to right, #fbbf24, #fcd34d, #fbbf24)', // amber-400 to yellow-400 to amber-400
-  backgroundClip: 'text',
-  textFillColor: 'transparent',
-  WebkitBackgroundClip: 'text',
-  WebkitTextFillColor: 'transparent',
+  color: '#d97706',
   fontWeight: 'bold',
   cursor: 'pointer',
-  filter: 'drop-shadow(0 2px 4px rgba(251, 191, 36, 0.3))',
   letterSpacing: '-0.025em'
 }));
 
@@ -210,6 +205,7 @@ export const Header = () => {
   };
 
   const isGeoAnalystDashboard = pathname?.startsWith('/geoanalyst-dashboard');
+  const isProfilePage = pathname === '/profile';
 
   return (
     <AppBar
@@ -217,9 +213,9 @@ export const Header = () => {
       elevation={0}
       sx={{
         zIndex: theme.zIndex.drawer + 1,
-        background: 'linear-gradient(to right, #1a1a2e, #16213e, #0f3460)',
-        borderBottom: '1px solid rgba(251, 191, 36, 0.2)',
-        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2)'
+        background: '#ffffff',
+        borderBottom: '1px solid rgba(15, 23, 42, 0.08)',
+        boxShadow: '0 4px 12px rgba(15, 23, 42, 0.08)'
       }}
     >
       <Toolbar sx={{
@@ -233,10 +229,10 @@ export const Header = () => {
           <IconButton
             onClick={toggleSidebar}
             sx={{
-              color: '#fcd34d',
+              color: '#0f172a',
               '&:hover': {
-                backgroundColor: 'rgba(251, 191, 36, 0.1)',
-                color: '#fbbf24'
+                backgroundColor: 'rgba(15, 23, 42, 0.08)',
+                color: '#111827'
               }
             }}
           >
@@ -257,7 +253,7 @@ export const Header = () => {
         </Box>
 
         {/* Center: Quick Actions (Desktop Only) */}
-        {!isMobile && isAuthenticated && !isGeoAnalystDashboard && (
+        {!isMobile && isAuthenticated && !isGeoAnalystDashboard && !isProfilePage && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Tooltip title="New Mining Analysis">
               <Button
@@ -269,12 +265,12 @@ export const Header = () => {
                   textTransform: 'none',
                   borderRadius: 2,
                   fontSize: '0.8rem',
-                  color: '#fcd34d',
-                  borderColor: 'rgba(252, 211, 77, 0.5)',
+                  color: '#0f172a',
+                  borderColor: 'rgba(15, 23, 42, 0.15)',
                   '&:hover': {
-                    borderColor: '#fbbf24',
-                    backgroundColor: 'rgba(251, 191, 36, 0.1)',
-                    color: '#fbbf24'
+                    borderColor: 'rgba(15, 23, 42, 0.25)',
+                    backgroundColor: 'rgba(15, 23, 42, 0.05)',
+                    color: '#111827'
                   }
                 }}
               >
@@ -292,12 +288,12 @@ export const Header = () => {
                   textTransform: 'none',
                   borderRadius: 2,
                   fontSize: '0.8rem',
-                  color: '#fcd34d',
-                  borderColor: 'rgba(252, 211, 77, 0.5)',
+                  color: '#0f172a',
+                  borderColor: 'rgba(15, 23, 42, 0.15)',
                   '&:hover': {
-                    borderColor: '#fbbf24',
-                    backgroundColor: 'rgba(251, 191, 36, 0.1)',
-                    color: '#fbbf24'
+                    borderColor: 'rgba(15, 23, 42, 0.25)',
+                    backgroundColor: 'rgba(15, 23, 42, 0.05)',
+                    color: '#111827'
                   }
                 }}
               >
@@ -315,12 +311,12 @@ export const Header = () => {
                   textTransform: 'none',
                   borderRadius: 2,
                   fontSize: '0.8rem',
-                  color: '#fcd34d',
-                  borderColor: 'rgba(252, 211, 77, 0.5)',
+                  color: '#0f172a',
+                  borderColor: 'rgba(15, 23, 42, 0.15)',
                   '&:hover': {
-                    borderColor: '#fbbf24',
-                    backgroundColor: 'rgba(251, 191, 36, 0.1)',
-                    color: '#fbbf24'
+                    borderColor: 'rgba(15, 23, 42, 0.25)',
+                    backgroundColor: 'rgba(15, 23, 42, 0.05)',
+                    color: '#111827'
                   }
                 }}
               >
@@ -340,12 +336,12 @@ export const Header = () => {
                     textTransform: 'none',
                     borderRadius: 2,
                     fontSize: '0.8rem',
-                    backgroundColor: '#fbbf24',
-                    color: '#1a1a2e',
+                    backgroundColor: '#0f172a',
+                    color: '#ffffff',
                     fontWeight: 600,
                     '&:hover': {
-                      backgroundColor: '#fcd34d',
-                      boxShadow: '0 4px 12px rgba(251, 191, 36, 0.4)'
+                      backgroundColor: '#1f2937',
+                      boxShadow: '0 4px 12px rgba(15, 23, 42, 0.18)'
                     }
                   }}
                 >
@@ -368,10 +364,10 @@ export const Header = () => {
               onClick={() => router.push('/search')}
               size="small"
               sx={{
-                color: '#fcd34d',
+                color: '#0f172a',
                 '&:hover': {
-                  color: '#fbbf24',
-                  backgroundColor: 'rgba(251, 191, 36, 0.1)'
+                  color: '#111827',
+                  backgroundColor: 'rgba(15, 23, 42, 0.08)'
                 }
               }}
             >
@@ -386,10 +382,10 @@ export const Header = () => {
                 onClick={() => router.push("/notifications")}
                 size="small"
                 sx={{
-                  color: '#fcd34d',
+                  color: '#0f172a',
                   '&:hover': {
-                    color: '#fbbf24',
-                    backgroundColor: 'rgba(251, 191, 36, 0.1)'
+                    color: '#111827',
+                    backgroundColor: 'rgba(15, 23, 42, 0.08)'
                   }
                 }}
               >
@@ -398,8 +394,8 @@ export const Header = () => {
                   overlap="circular"
                   sx={{
                     '& .MuiBadge-badge': {
-                      backgroundColor: '#fbbf24',
-                      color: '#1a1a2e',
+                      backgroundColor: '#0f172a',
+                      color: '#ffffff',
                       fontWeight: 600
                     }
                   }}
@@ -447,11 +443,11 @@ export const Header = () => {
                     sx={{
                       width: 32,
                       height: 32,
-                      bgcolor: '#fbbf24',
-                      color: '#1a1a2e',
+                      bgcolor: '#0f172a',
+                      color: '#ffffff',
                       fontSize: '0.875rem',
                       fontWeight: 'bold',
-                      border: '2px solid rgba(251, 191, 36, 0.5)'
+                      border: '2px solid rgba(15, 23, 42, 0.12)'
                     }}
                   >
                     {user.name?.charAt(0).toUpperCase() || 'U'}
@@ -469,20 +465,20 @@ export const Header = () => {
                 anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
                 PaperProps={{
                   sx: {
-                    background: 'linear-gradient(to bottom, #1a1a2e, #16213e)',
-                    border: '1px solid rgba(251, 191, 36, 0.2)',
+                    background: '#ffffff',
+                    border: '1px solid rgba(15, 23, 42, 0.08)',
                     '& .MuiMenuItem-root': {
-                      color: '#ffffff',
+                      color: '#0f172a',
                       '&:hover': {
-                        backgroundColor: 'rgba(251, 191, 36, 0.1)',
-                        color: '#fcd34d'
+                        backgroundColor: 'rgba(15, 23, 42, 0.05)',
+                        color: '#111827'
                       }
                     },
                     '& .MuiListItemIcon-root': {
-                      color: '#fcd34d'
+                      color: '#0f172a'
                     },
                     '& .MuiDivider-root': {
-                      borderColor: 'rgba(251, 191, 36, 0.2)'
+                      borderColor: 'rgba(15, 23, 42, 0.08)'
                     }
                   }
                 }}
@@ -528,10 +524,10 @@ export const Header = () => {
                 onClick={toggleFullscreen}
                 size="small"
                 sx={{
-                  color: '#ffffff',
+                  color: '#0f172a',
                   '&:hover': {
-                    color: '#fcd34d',
-                    backgroundColor: 'rgba(251, 191, 36, 0.1)'
+                    color: '#111827',
+                    backgroundColor: 'rgba(15, 23, 42, 0.08)'
                   }
                 }}
               >

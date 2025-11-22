@@ -832,15 +832,15 @@ const normalizeBlockVisualization = (raw: any): QuantitativeBlockVisualizationNo
   const gridRaw = raw.grid;
   const grid = gridRaw && typeof gridRaw === 'object'
     ? {
-        x: normalizeAxisArray(gridRaw.x),
-        y: normalizeAxisArray(gridRaw.y),
-        elevation: normalizeMatrix(gridRaw.elevation),
-        depth: normalizeMatrix(gridRaw.depth),
-        rimElevation: toNumberOrNull(gridRaw.rimElevation),
-        resolutionX: toNumberOrNull(gridRaw.resolutionX),
-        resolutionY: toNumberOrNull(gridRaw.resolutionY),
-        unit: typeof gridRaw.unit === 'string' ? gridRaw.unit : 'meters',
-      }
+      x: normalizeAxisArray(gridRaw.x),
+      y: normalizeAxisArray(gridRaw.y),
+      elevation: normalizeMatrix(gridRaw.elevation),
+      depth: normalizeMatrix(gridRaw.depth),
+      rimElevation: toNumberOrNull(gridRaw.rimElevation),
+      resolutionX: toNumberOrNull(gridRaw.resolutionX),
+      resolutionY: toNumberOrNull(gridRaw.resolutionY),
+      unit: typeof gridRaw.unit === 'string' ? gridRaw.unit : 'meters',
+    }
     : null;
 
   return {
@@ -872,17 +872,17 @@ const normalizeSummary = (summary: any): QuantitativeSummary => {
     blockCount: typeof summary.blockCount === 'number' ? summary.blockCount : undefined,
     deepestBlock: deepest && typeof deepest === 'object'
       ? {
-          label: typeof deepest.label === 'string' ? deepest.label : 'Deepest Block',
-          maxDepthMeters: toNumber(deepest.maxDepthMeters, 0),
-          volumeCubicMeters: toNumber(deepest.volumeCubicMeters, 0),
-        }
+        label: typeof deepest.label === 'string' ? deepest.label : 'Deepest Block',
+        maxDepthMeters: toNumber(deepest.maxDepthMeters, 0),
+        volumeCubicMeters: toNumber(deepest.volumeCubicMeters, 0),
+      }
       : null,
     largestBlock: largest && typeof largest === 'object'
       ? {
-          label: typeof largest.label === 'string' ? largest.label : 'Largest Block',
-          volumeCubicMeters: toNumber(largest.volumeCubicMeters, 0),
-          areaHectares: toNumberOrNull(largest.areaHectares),
-        }
+        label: typeof largest.label === 'string' ? largest.label : 'Largest Block',
+        volumeCubicMeters: toNumber(largest.volumeCubicMeters, 0),
+        areaHectares: toNumberOrNull(largest.areaHectares),
+      }
       : null,
   };
 };
@@ -907,9 +907,9 @@ const normalizeBlock = (block: any): QuantitativeBlockMetric => {
     pixelCount: typeof block?.pixelCount === 'number' ? block.pixelCount : toNumberOrNull(block?.pixels) ?? null,
     centroid: block?.centroid && typeof block.centroid === 'object'
       ? {
-          lon: toNumber(block.centroid.lon, 0),
-          lat: toNumber(block.centroid.lat, 0),
-        }
+        lon: toNumber(block.centroid.lon, 0),
+        lat: toNumber(block.centroid.lat, 0),
+      }
       : null,
     visualization: normalizeBlockVisualization(block?.visualization),
     computedAt: toDateISOString(block?.computedAt ?? block?.computed_at),
@@ -1038,7 +1038,7 @@ const ContourPlot = memo(({
         colorscale: 'Portland',
         reversescale: false,
         ncontours: 25,
-        line: { smoothing: 0.6, color: 'rgba(15, 23, 42, 0.45)' },
+        line: { smoothing: 0.6, color: '#cbd5f5' },
         contours: {
           coloring: 'heatmap',
           showlabels: true,
@@ -1056,8 +1056,8 @@ const ContourPlot = memo(({
         },
         colorbar: {
           title: 'Elevation (m)',
-          tickfont: { color: '#e2e8f0' },
-          titlefont: { color: '#e2e8f0' },
+          tickfont: { color: '#475569' },
+          titlefont: { color: '#475569' },
         },
       },
     ];
@@ -1144,20 +1144,20 @@ const ContourPlot = memo(({
       margin: { l: 46, r: 12, t: 32, b: 42 },
       paper_bgcolor: 'rgba(0,0,0,0)',
       plot_bgcolor: 'rgba(0,0,0,0)',
-      font: { color: '#e2e8f0', family: 'Inter, sans-serif' },
+      font: { color: '#475569', family: 'Inter, sans-serif' },
       dragmode: 'pan',
       hovermode: 'closest',
       xaxis: {
         title: 'Easting (m)',
-        color: '#e2e8f0',
+        color: '#475569',
         showgrid: true,
-        gridcolor: 'rgba(148, 163, 184, 0.25)',
+        gridcolor: '#cbd5f5',
       },
       yaxis: {
         title: 'Northing (m)',
-        color: '#e2e8f0',
+        color: '#475569',
         showgrid: true,
-        gridcolor: 'rgba(148, 163, 184, 0.25)',
+        gridcolor: '#cbd5f5',
         scaleanchor: 'x',
       },
     }),
@@ -1175,7 +1175,6 @@ const ContourPlot = memo(({
   }
 
   const displayInfo = hoverInfo ?? defaultHoverInfo ?? { x: null, y: null, z: null };
-
   const infoItems = [
     { key: 'easting', label: 'E', value: displayInfo.x, unit: 'm', decimals: 2 },
     { key: 'northing', label: 'N', value: displayInfo.y, unit: 'm', decimals: 2 },
@@ -1187,7 +1186,6 @@ const ContourPlot = memo(({
       <Box sx={{ position: 'relative', width: '100%', height: 280 }}>
         <Plot
           key={plotKey}
-          ref={plotRef}
           data={data}
           layout={layout}
           config={plotConfig}
@@ -1203,10 +1201,9 @@ const ContourPlot = memo(({
           px: 1.75,
           py: 1,
           borderRadius: 1.5,
-          background: 'rgba(15, 23, 42, 0.55)',
-          border: '1px solid rgba(148, 163, 184, 0.25)',
-          backdropFilter: 'blur(6px)',
-          color: '#f8fafc',
+          background: 'linear-gradient(150deg, rgba(240, 249, 255, 0.9) 0%, rgba(248, 250, 252, 0.96) 100%)',
+          border: '1px solid rgba(148, 197, 255, 0.35)',
+          color: '#0f172a',
           flexWrap: 'wrap',
           rowGap: 1.25,
         }}
@@ -1219,10 +1216,10 @@ const ContourPlot = memo(({
             alignItems="center"
             sx={{ minWidth: 120 }}
           >
-            <Typography sx={{ fontSize: '0.75rem', letterSpacing: 1.5, textTransform: 'uppercase', color: '#94a3b8' }}>
+            <Typography sx={{ fontSize: '0.75rem', letterSpacing: 1.5, textTransform: 'uppercase', color: '#64748b' }}>
               {item.label}
             </Typography>
-            <Typography sx={{ fontSize: '0.95rem', fontWeight: 500 }}>
+            <Typography sx={{ fontSize: '0.95rem', fontWeight: 500, color: '#0f172a' }}>
               {formatNumber(item.value, item.decimals)} {item.unit}
             </Typography>
           </Stack>
@@ -1308,7 +1305,7 @@ const SurfacePlot = memo(({
     if (!hasData) {
       return [];
     }
-  const colorMatrix = grid.elevation;
+    const colorMatrix = grid.elevation;
     return [
       {
         type: 'surface',
@@ -1321,8 +1318,8 @@ const SurfacePlot = memo(({
         showscale: true,
         colorbar: {
           title: 'Elevation (m)',
-          tickfont: { color: '#e2e8f0' },
-          titlefont: { color: '#e2e8f0' },
+          tickfont: { color: '#475569' },
+          titlefont: { color: '#475569' },
         },
         opacity: 0.95,
         hovertemplate: depthMatrix
@@ -1456,25 +1453,25 @@ const SurfacePlot = memo(({
       margin: { l: 0, r: 0, t: 36, b: 0 },
       paper_bgcolor: 'rgba(0,0,0,0)',
       plot_bgcolor: 'rgba(0,0,0,0)',
-      font: { color: '#e2e8f0', family: 'Inter, sans-serif' },
+      font: { color: '#475569', family: 'Inter, sans-serif' },
       scene: {
         xaxis: {
           title: 'Easting (m)',
-          color: '#e2e8f0',
-          gridcolor: 'rgba(148, 163, 184, 0.35)',
-          zerolinecolor: 'rgba(148, 163, 184, 0.45)',
+          color: '#475569',
+          gridcolor: '#cbd5f5',
+          zerolinecolor: '#cbd5f5',
         },
         yaxis: {
           title: 'Northing (m)',
-          color: '#e2e8f0',
-          gridcolor: 'rgba(148, 163, 184, 0.35)',
-          zerolinecolor: 'rgba(148, 163, 184, 0.45)',
+          color: '#475569',
+          gridcolor: '#cbd5f5',
+          zerolinecolor: '#cbd5f5',
         },
         zaxis: {
           title: 'Elevation (m)',
-          color: '#e2e8f0',
-          gridcolor: 'rgba(148, 163, 184, 0.35)',
-          zerolinecolor: 'rgba(148, 163, 184, 0.45)',
+          color: '#475569',
+          gridcolor: '#cbd5f5',
+          zerolinecolor: '#cbd5f5',
         },
         camera: {
           eye: { x: 1.35, y: 1.45, z: 1.25 },
@@ -1531,10 +1528,10 @@ const SurfacePlot = memo(({
           px: 1.75,
           py: 1,
           borderRadius: 1.5,
-          background: 'rgba(15, 23, 42, 0.55)',
-          border: '1px solid rgba(148, 163, 184, 0.25)',
-          backdropFilter: 'blur(6px)',
-          color: '#f8fafc',
+          background: 'linear-gradient(150deg, rgba(255, 255, 255, 0.95) 0%, rgba(219, 234, 254, 0.75) 100%)',
+          border: '1px solid rgba(148, 197, 255, 0.35)',
+          backdropFilter: 'blur(4px)',
+          color: '#0f172a',
           flexWrap: 'wrap',
           rowGap: 1.25,
         }}
@@ -1547,10 +1544,10 @@ const SurfacePlot = memo(({
             alignItems="center"
             sx={{ minWidth: 120 }}
           >
-            <Typography sx={{ fontSize: '0.75rem', letterSpacing: 1.5, textTransform: 'uppercase', color: '#94a3b8' }}>
+            <Typography sx={{ fontSize: '0.75rem', letterSpacing: 1.5, textTransform: 'uppercase', color: '#64748b' }}>
               {item.label}
             </Typography>
-            <Typography sx={{ fontSize: '0.95rem', fontWeight: 500 }}>
+            <Typography sx={{ fontSize: '0.95rem', fontWeight: 500, color: '#0f172a' }}>
               {formatNumber(item.value, item.decimals)} {item.unit}
             </Typography>
           </Stack>
@@ -1590,7 +1587,7 @@ const BlockMosaicPreview = memo(({ imagery, label }: { imagery: BlockImagerySnap
       if (!Number.isFinite(relX) || !Number.isFinite(relY)) {
         return null;
       }
-  return `${clamp(relX).toFixed(4)},${clamp(relY).toFixed(4)}`;
+      return `${clamp(relX).toFixed(4)},${clamp(relY).toFixed(4)}`;
     };
 
     const rings = blockPolygon
@@ -1644,11 +1641,11 @@ const BlockMosaicPreview = memo(({ imagery, label }: { imagery: BlockImagerySnap
         borderRadius: 1.5,
         overflow: 'hidden',
         border: imageSrc ? '1px solid rgba(148, 163, 184, 0.35)' : '1px dashed rgba(148, 163, 184, 0.35)',
-        background: 'rgba(15, 23, 42, 0.35)',
+        background: 'linear-gradient(150deg, rgba(248, 250, 252, 0.96) 0%, rgba(224, 231, 255, 0.72) 100%)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        color: 'rgba(148, 163, 184, 0.75)',
+        color: 'rgba(71, 85, 105, 0.85)',
         fontSize: '0.75rem',
         textAlign: 'center',
       }}
@@ -1744,7 +1741,7 @@ const QuantitativeResultsPage = () => {
 
     return !hasVisualization;
   }, [quantitativeResult]);
-  
+
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
       router.replace('/login');
@@ -1876,8 +1873,8 @@ const QuantitativeResultsPage = () => {
           detections: (data?.detectionCount ?? data?.statistics?.totalDetections) ?? null,
         });
 
-  setResults(data);
-  setHistoryRecord((prev) => (prev ? { ...prev, results: data as AnalysisResults } : prev));
+        setResults(data);
+        setHistoryRecord((prev) => (prev ? { ...prev, results: data as AnalysisResults } : prev));
         initialQuantAttemptRef.current = false;
         setShouldRecompute(true);
       } catch (liveError: any) {
@@ -1943,12 +1940,12 @@ const QuantitativeResultsPage = () => {
 
     if (!shouldRecompute) {
       if (quantitativeResult) {
-      if (requiresFreshQuantitative && !bootstrapQuantTriggeredRef.current) {
-        bootstrapQuantTriggeredRef.current = true;
-        setShouldRecompute(true);
-      } else if (!requiresFreshQuantitative && bootstrapQuantTriggeredRef.current) {
-        bootstrapQuantTriggeredRef.current = false;
-      }
+        if (requiresFreshQuantitative && !bootstrapQuantTriggeredRef.current) {
+          bootstrapQuantTriggeredRef.current = true;
+          setShouldRecompute(true);
+        } else if (!requiresFreshQuantitative && bootstrapQuantTriggeredRef.current) {
+          bootstrapQuantTriggeredRef.current = false;
+        }
       }
       return;
     }
@@ -2422,69 +2419,69 @@ const QuantitativeResultsPage = () => {
 
     const tileRows = Array.isArray(results?.tiles)
       ? results.tiles.flatMap((tile: any, tileIdx: number) => {
-          const tileBlocks = Array.isArray(tile.mine_blocks) ? tile.mine_blocks : [];
-          if (!tileBlocks.length) {
-            return [];
-          }
+        const tileBlocks = Array.isArray(tile.mine_blocks) ? tile.mine_blocks : [];
+        if (!tileBlocks.length) {
+          return [];
+        }
 
-          const tileLabel = tile.tile_label
-            ?? tile.tile_id
-            ?? (typeof tile.tile_index === 'number' ? `tile_${tile.tile_index}` : `Tile ${tileIdx + 1}`);
-          const displayTileId = tile.tile_id ? String(tile.tile_id) : tileLabel;
+        const tileLabel = tile.tile_label
+          ?? tile.tile_id
+          ?? (typeof tile.tile_index === 'number' ? `tile_${tile.tile_index}` : `Tile ${tileIdx + 1}`);
+        const displayTileId = tile.tile_id ? String(tile.tile_id) : tileLabel;
 
-          return tileBlocks.map((block: any, blockIdx: number) => {
-            const props = block?.properties || {};
-            const blockId = props.block_id || `${displayTileId}-block-${blockIdx + 1}`;
-            const displayLabel = props.name || `${tileLabel} · Block ${blockIdx + 1}`;
-            const geometry = parseGeometryCandidate(block?.geometry ?? props.geometry ?? props.geom ?? null);
-            const polygon = normalizePolygonRings(geometry);
-            const centroidArray = Array.isArray(props.label_position) && props.label_position.length >= 2
-              ? props.label_position.map((value: any) => (typeof value === 'number' ? value : Number(value)))
-              : undefined;
-            const boundsArray = normalizeBoundsTuple(props.bbox) ?? boundsFromPolygon(polygon) ?? undefined;
+        return tileBlocks.map((block: any, blockIdx: number) => {
+          const props = block?.properties || {};
+          const blockId = props.block_id || `${displayTileId}-block-${blockIdx + 1}`;
+          const displayLabel = props.name || `${tileLabel} · Block ${blockIdx + 1}`;
+          const geometry = parseGeometryCandidate(block?.geometry ?? props.geometry ?? props.geom ?? null);
+          const polygon = normalizePolygonRings(geometry);
+          const centroidArray = Array.isArray(props.label_position) && props.label_position.length >= 2
+            ? props.label_position.map((value: any) => (typeof value === 'number' ? value : Number(value)))
+            : undefined;
+          const boundsArray = normalizeBoundsTuple(props.bbox) ?? boundsFromPolygon(polygon) ?? undefined;
 
-            const metrics = quantitativeMetricMap.get(props.persistent_id || blockId) || quantitativeMetricMap.get(displayLabel);
-            const imagery = resolveImagery([
-              props.persistent_id,
-              blockId,
-              displayLabel,
-            ]) || {
-              imageBase64: typeof tile?.image_base64 === 'string' ? tile.image_base64 : null,
-              probabilityBase64: typeof tile?.probability_map_base64 === 'string' ? tile.probability_map_base64 : null,
-              tileBounds: normalizeBoundsTuple(tile?.bounds),
-              blockBounds: boundsArray ?? null,
-              tileLabel: tileLabel,
-              transform: normalizeTransformLocal(tile?.transform ?? tile?.affine ?? null),
-              crs: typeof tile?.crs === 'string' ? tile.crs : null,
-              blockPolygon: polygon ?? null,
-            };
+          const metrics = quantitativeMetricMap.get(props.persistent_id || blockId) || quantitativeMetricMap.get(displayLabel);
+          const imagery = resolveImagery([
+            props.persistent_id,
+            blockId,
+            displayLabel,
+          ]) || {
+            imageBase64: typeof tile?.image_base64 === 'string' ? tile.image_base64 : null,
+            probabilityBase64: typeof tile?.probability_map_base64 === 'string' ? tile.probability_map_base64 : null,
+            tileBounds: normalizeBoundsTuple(tile?.bounds),
+            blockBounds: boundsArray ?? null,
+            tileLabel: tileLabel,
+            transform: normalizeTransformLocal(tile?.transform ?? tile?.affine ?? null),
+            crs: typeof tile?.crs === 'string' ? tile.crs : null,
+            blockPolygon: polygon ?? null,
+          };
 
-            return {
-              id: `tile-${blockId}`,
-              label: displayLabel,
-              tileId: displayTileId,
-              areaHa: (props.area_m2 || 0) / 10_000,
-              confidencePct: normalizeConfidenceValue(props.avg_confidence ?? props.confidence ?? props.mean_confidence),
-              source: 'Tile' as const,
-              isMerged: !!props.is_merged,
-              persistentId: props.persistent_id || blockId,
-              blockIndex: props.block_index,
-              centroidLat: centroidArray?.[1],
-              centroidLon: centroidArray?.[0],
-              bounds: boundsArray,
-              rimElevationMeters: metrics?.rimElevationMeters ?? null,
-              maxDepthMeters: metrics?.maxDepthMeters ?? null,
-              meanDepthMeters: metrics?.meanDepthMeters ?? null,
-              volumeCubicMeters: metrics?.volumeCubicMeters ?? null,
-              imageBase64: imagery?.imageBase64 ?? null,
-              probabilityMapBase64: imagery?.probabilityBase64 ?? null,
-              tileBounds: imagery?.tileBounds ?? null,
-              tileTransform: imagery?.transform ?? null,
-              tileCrs: imagery?.crs ?? null,
-              blockPolygon: imagery?.blockPolygon ?? polygon ?? null,
-            } satisfies MineBlockRow;
-          });
-        })
+          return {
+            id: `tile-${blockId}`,
+            label: displayLabel,
+            tileId: displayTileId,
+            areaHa: (props.area_m2 || 0) / 10_000,
+            confidencePct: normalizeConfidenceValue(props.avg_confidence ?? props.confidence ?? props.mean_confidence),
+            source: 'Tile' as const,
+            isMerged: !!props.is_merged,
+            persistentId: props.persistent_id || blockId,
+            blockIndex: props.block_index,
+            centroidLat: centroidArray?.[1],
+            centroidLon: centroidArray?.[0],
+            bounds: boundsArray,
+            rimElevationMeters: metrics?.rimElevationMeters ?? null,
+            maxDepthMeters: metrics?.maxDepthMeters ?? null,
+            meanDepthMeters: metrics?.meanDepthMeters ?? null,
+            volumeCubicMeters: metrics?.volumeCubicMeters ?? null,
+            imageBase64: imagery?.imageBase64 ?? null,
+            probabilityMapBase64: imagery?.probabilityBase64 ?? null,
+            tileBounds: imagery?.tileBounds ?? null,
+            tileTransform: imagery?.transform ?? null,
+            tileCrs: imagery?.crs ?? null,
+            blockPolygon: imagery?.blockPolygon ?? polygon ?? null,
+          } satisfies MineBlockRow;
+        });
+      })
       : [];
 
     const combined = [...mergedRows, ...tileRows];
@@ -2671,28 +2668,28 @@ const QuantitativeResultsPage = () => {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: 'linear-gradient(to right, #1a1a2e, #16213e, #0f3460)' }}>
-        <CircularProgress sx={{ color: '#fcd34d' }} size={60} />
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: '#f8fafc' }}>
+        <CircularProgress sx={{ color: '#2563eb' }} size={60} />
       </Box>
     );
   }
 
   if (error || !results) {
     return (
-      <Box sx={{ p: 4, background: 'linear-gradient(to right, #1a1a2e, #16213e, #0f3460)', minHeight: '100vh' }}>
+      <Box sx={{ p: 4, backgroundColor: '#f8fafc', minHeight: '100vh' }}>
         <Alert severity="error">{error || 'No results found'}</Alert>
       </Box>
     );
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', background: 'linear-gradient(to right, #1a1a2e, #16213e, #0f3460)' }}>
+    <Box sx={{ minHeight: '100vh', backgroundColor: '#f8fafc' }}>
       <Box sx={{ maxWidth: 1400, mx: 'auto', px: 4, py: 5 }}>
         <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 3 }}>
           <Button
             startIcon={<ArrowBack />}
             onClick={() => router.push(`/geoanalyst-dashboard/results?id=${analysisId ?? ''}`)}
-            sx={{ color: '#fcd34d', textTransform: 'none' }}
+            sx={{ color: '#2563eb', textTransform: 'none', fontWeight: 600 }}
           >
             Back to Results Explorer
           </Button>
@@ -2701,16 +2698,16 @@ const QuantitativeResultsPage = () => {
         <GoldenText variant="h4" fontWeight="bold" gutterBottom>
           Quantitative Analysis
         </GoldenText>
-        <Typography sx={{ color: 'rgba(252, 211, 77, 0.6)', fontSize: '0.85rem', fontFamily: 'monospace', wordBreak: 'break-all' }}>
+        <Typography sx={{ color: '#64748b', fontSize: '0.85rem', fontFamily: 'monospace', wordBreak: 'break-all' }}>
           Analysis ID: {analysisId}
         </Typography>
         <Stack direction="row" spacing={1.5} sx={{ mt: 1.5 }}>
           <Chip
             label={historyRecord?.status ? historyRecord.status.toUpperCase() : 'COMPLETED'}
             sx={{
-              backgroundColor: 'rgba(59, 130, 246, 0.15)',
-              border: '1px solid rgba(59, 130, 246, 0.35)',
-              color: '#93c5fd',
+              backgroundColor: '#eff6ff',
+              border: '1px solid #bfdbfe',
+              color: '#1d4ed8',
               fontWeight: 600,
               letterSpacing: 0.5,
             }}
@@ -2718,9 +2715,9 @@ const QuantitativeResultsPage = () => {
           <Chip
             label={`Blocks: ${blockAnalytics.count}`}
             sx={{
-              backgroundColor: 'rgba(234, 179, 8, 0.15)',
-              border: '1px solid rgba(234, 179, 8, 0.35)',
-              color: '#fde68a',
+              backgroundColor: '#fefce8',
+              border: '1px solid #fde68a',
+              color: '#b45309',
               fontWeight: 600,
               letterSpacing: 0.5,
             }}
@@ -2728,9 +2725,9 @@ const QuantitativeResultsPage = () => {
           <Chip
             label={`Coverage: ${formatNumber(tileAreaMetrics.coveragePct ?? null, 1)}%`}
             sx={{
-              backgroundColor: 'rgba(6, 182, 212, 0.15)',
-              border: '1px solid rgba(6, 182, 212, 0.35)',
-              color: '#67e8f9',
+              backgroundColor: '#ecfeff',
+              border: '1px solid #a5f3fc',
+              color: '#0e7490',
               fontWeight: 600,
               letterSpacing: 0.5,
             }}
@@ -2739,9 +2736,9 @@ const QuantitativeResultsPage = () => {
             <Chip
               label={`Volume: ${formatVolume(volumetricSummary.totalVolumeCubicMeters)}`}
               sx={{
-                backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                border: '1px solid rgba(16, 185, 129, 0.35)',
-                color: '#6ee7b7',
+                backgroundColor: '#f0fdf4',
+                border: '1px solid #bbf7d0',
+                color: '#15803d',
                 fontWeight: 600,
                 letterSpacing: 0.5,
               }}
@@ -2751,9 +2748,9 @@ const QuantitativeResultsPage = () => {
             <Chip
               label="Saving to history…"
               sx={{
-                backgroundColor: 'rgba(37, 99, 235, 0.18)',
-                border: '1px dashed rgba(96, 165, 250, 0.45)',
-                color: '#bfdbfe',
+                backgroundColor: '#f8fafc',
+                border: '1px dashed #cbd5f5',
+                color: '#475569',
                 fontWeight: 600,
                 letterSpacing: 0.5,
               }}
@@ -2763,9 +2760,9 @@ const QuantitativeResultsPage = () => {
             <Chip
               label={`Stored${persistedAt ? ` · ${formatDate(persistedAt)}` : ''}`}
               sx={{
-                backgroundColor: 'rgba(34, 197, 94, 0.18)',
-                border: '1px solid rgba(74, 222, 128, 0.35)',
-                color: '#bbf7d0',
+                backgroundColor: '#f0fdf4',
+                border: '1px solid #bbf7d0',
+                color: '#15803d',
                 fontWeight: 600,
                 letterSpacing: 0.5,
               }}
@@ -2775,9 +2772,9 @@ const QuantitativeResultsPage = () => {
             <Chip
               label="Save to history failed"
               sx={{
-                backgroundColor: 'rgba(239, 68, 68, 0.18)',
-                border: '1px solid rgba(248, 113, 113, 0.45)',
-                color: '#fecaca',
+                backgroundColor: '#fef2f2',
+                border: '1px solid #fecaca',
+                color: '#b91c1c',
                 fontWeight: 600,
                 letterSpacing: 0.5,
               }}
@@ -2802,40 +2799,42 @@ const QuantitativeResultsPage = () => {
               <Paper
                 sx={{
                   p: 3,
-                  background: 'rgba(15, 52, 96, 0.65)',
-                  border: '1px solid rgba(148, 163, 184, 0.3)',
+                  background: 'linear-gradient(160deg, rgba(255, 247, 214, 0.82) 0%, rgba(255, 255, 255, 0.95) 60%, rgba(248, 250, 252, 0.98) 100%)',
+                  border: '1px solid rgba(250, 204, 21, 0.35)',
+                  borderRadius: 2,
+                  boxShadow: '0 18px 36px rgba(250, 204, 21, 0.18)',
                 }}
                 elevation={0}
               >
                 <Stack spacing={2.5}>
                   <Stack direction={{ xs: 'column', md: 'row' }} spacing={2.5}>
                     <Box sx={{ flex: 1 }}>
-                      <Typography sx={{ color: '#fbbf24', fontWeight: 700, mb: 1 }}>
+                      <Typography sx={{ color: '#0f172a', fontWeight: 700, mb: 1 }}>
                         Executive Summary
                       </Typography>
                       <Stack spacing={1.25}>
                         <Stack direction="row" justifyContent="space-between">
-                          <Typography sx={{ color: 'rgba(226, 232, 240, 0.8)' }}>Total Extracted Volume</Typography>
-                          <Typography sx={{ color: '#f8fafc', fontWeight: 700 }}>
+                          <Typography sx={{ color: '#475569' }}>Total Extracted Volume</Typography>
+                          <Typography sx={{ color: '#0f172a', fontWeight: 700 }}>
                             {formatVolume(headlineVolume)}
                           </Typography>
                         </Stack>
                         <Stack direction="row" justifyContent="space-between">
-                          <Typography sx={{ color: 'rgba(226, 232, 240, 0.8)' }}>Excavated Footprint</Typography>
-                          <Typography sx={{ color: '#f8fafc', fontWeight: 700 }}>
+                          <Typography sx={{ color: '#475569' }}>Excavated Footprint</Typography>
+                          <Typography sx={{ color: '#0f172a', fontWeight: 700 }}>
                             {formatNumber(headlineAreaHa, 2)} ha
                           </Typography>
                         </Stack>
                         <Stack direction="row" justifyContent="space-between">
-                          <Typography sx={{ color: 'rgba(226, 232, 240, 0.8)' }}>Blocks Analysed</Typography>
-                          <Typography sx={{ color: '#f8fafc', fontWeight: 700 }}>
+                          <Typography sx={{ color: '#475569' }}>Blocks Analysed</Typography>
+                          <Typography sx={{ color: '#0f172a', fontWeight: 700 }}>
                             {headlineBlockCount ?? '--'}
                           </Typography>
                         </Stack>
                       </Stack>
                     </Box>
                     <Box sx={{ flex: 1 }}>
-                      <Typography sx={{ color: '#fbbf24', fontWeight: 700, mb: 1 }}>
+                      <Typography sx={{ color: '#0f172a', fontWeight: 700, mb: 1 }}>
                         Priority Blocks (Top {topPriorityBlocks.length})
                       </Typography>
                       {topPriorityBlocks.length ? (
@@ -2846,74 +2845,74 @@ const QuantitativeResultsPage = () => {
                               sx={{
                                 p: 1.5,
                                 borderRadius: 1.5,
-                                background: 'rgba(30, 58, 138, 0.45)',
-                                border: '1px solid rgba(96, 165, 250, 0.25)',
+                                background: 'linear-gradient(150deg, rgba(248, 250, 252, 0.9) 0%, rgba(219, 234, 254, 0.75) 100%)',
+                                border: '1px solid rgba(148, 197, 255, 0.35)',
                               }}
                             >
                               <Stack direction="row" justifyContent="space-between" alignItems="center">
-                                <Typography sx={{ color: '#e2e8f0', fontWeight: 600 }}>
+                                <Typography sx={{ color: '#0f172a', fontWeight: 600 }}>
                                   {index + 1}. {block.label ?? block.blockId ?? 'Block'}
                                 </Typography>
                                 <Chip
                                   label={`${formatVolume(block.volumeCubicMeters ?? 0)}`}
                                   size="small"
                                   sx={{
-                                    backgroundColor: 'rgba(250, 204, 21, 0.16)',
-                                    border: '1px solid rgba(250, 204, 21, 0.35)',
-                                    color: '#fde68a',
+                                    backgroundColor: '#fefce8',
+                                    border: '1px solid #fde68a',
+                                    color: '#b45309',
                                     fontWeight: 600,
                                   }}
                                 />
                               </Stack>
-                              <Typography sx={{ color: 'rgba(148, 163, 184, 0.8)', fontSize: '0.75rem', mt: 0.5 }}>
+                              <Typography sx={{ color: '#64748b', fontSize: '0.75rem', mt: 0.5 }}>
                                 Max depth {formatNumber(block.maxDepthMeters, 1)} m · Area {formatNumber(block.areaHectares, 2)} ha
                               </Typography>
                             </Box>
                           ))}
                         </Stack>
                       ) : (
-                        <Typography sx={{ color: 'rgba(148, 163, 184, 0.75)', fontSize: '0.85rem' }}>
+                        <Typography sx={{ color: '#64748b', fontSize: '0.85rem' }}>
                           No blocks exceeded the defined depth/volume thresholds.
                         </Typography>
                       )}
                     </Box>
                     <Box sx={{ flex: 1 }}>
-                      <Typography sx={{ color: '#fbbf24', fontWeight: 700, mb: 1 }}>
+                      <Typography sx={{ color: '#0f172a', fontWeight: 700, mb: 1 }}>
                         Governance Insights
                       </Typography>
                       <Stack spacing={1.25}>
-                        <Typography sx={{ color: 'rgba(226, 232, 240, 0.8)', fontSize: '0.85rem' }}>
-                          Average mean depth across blocks: <Box component="span" sx={{ color: '#fcd34d', fontWeight: 600 }}>
+                        <Typography sx={{ color: '#475569', fontSize: '0.85rem' }}>
+                          Average mean depth across blocks: <Box component="span" sx={{ color: '#1d4ed8', fontWeight: 600 }}>
                             {formatNumber(insights?.averageMeanDepthMeters ?? volumetricSummary?.averageMeanDepthMeters ?? null, 2)} m
                           </Box>
                         </Typography>
                         {insights?.deepestBlock && (
-                          <Typography sx={{ color: 'rgba(226, 232, 240, 0.8)', fontSize: '0.85rem' }}>
+                          <Typography sx={{ color: '#475569', fontSize: '0.85rem' }}>
                             Deepest excavation:
-                            <Box component="span" sx={{ color: '#fcd34d', fontWeight: 600, ml: 0.5 }}>
+                            <Box component="span" sx={{ color: '#1d4ed8', fontWeight: 600, ml: 0.5 }}>
                               {insights.deepestBlock.label}
                             </Box>
                             {' '}({formatNumber(insights.deepestBlock.maxDepthMeters, 2)} m)
                           </Typography>
                         )}
                         {insights?.largestBlock && (
-                          <Typography sx={{ color: 'rgba(226, 232, 240, 0.8)', fontSize: '0.85rem' }}>
+                          <Typography sx={{ color: '#475569', fontSize: '0.85rem' }}>
                             Highest volume block:
-                            <Box component="span" sx={{ color: '#fcd34d', fontWeight: 600, ml: 0.5 }}>
+                            <Box component="span" sx={{ color: '#1d4ed8', fontWeight: 600, ml: 0.5 }}>
                               {insights.largestBlock.label}
                             </Box>
                             {' '}({formatVolume(insights.largestBlock.volumeCubicMeters)})
                           </Typography>
                         )}
                         {executiveSummary?.policyFlags && (
-                          <Typography sx={{ color: 'rgba(148, 163, 184, 0.7)', fontSize: '0.75rem' }}>
+                          <Typography sx={{ color: '#94a3b8', fontSize: '0.75rem' }}>
                             Policy flags: {executiveSummary.policyFlags.requiresAttention ? 'Immediate field validation recommended' : 'No critical thresholds exceeded'}
                           </Typography>
                         )}
                       </Stack>
                     </Box>
                   </Stack>
-                  <Typography sx={{ color: 'rgba(148, 163, 184, 0.65)', fontSize: '0.75rem' }}>
+                  <Typography sx={{ color: '#94a3b8', fontSize: '0.75rem' }}>
                     Last updated {formatDate(executiveSummary.updatedAt ?? quantitativeResult?.executedAt ?? persistedAt)}
                   </Typography>
                 </Stack>
@@ -2924,31 +2923,33 @@ const QuantitativeResultsPage = () => {
             <Paper
               sx={{
                 p: 3,
-                background: 'rgba(26, 26, 46, 0.75)',
-                border: '1px solid rgba(148, 163, 184, 0.25)',
+                background: 'linear-gradient(155deg, rgba(224, 242, 254, 0.92) 0%, rgba(236, 252, 255, 0.96) 100%)',
+                border: '1px solid rgba(96, 165, 250, 0.35)',
+                borderRadius: 2,
+                boxShadow: '0 18px 34px rgba(59, 130, 246, 0.15)',
               }}
               elevation={0}
             >
-              <Typography sx={{ color: '#fcd34d', fontWeight: 700, mb: 1 }}>
+              <Typography sx={{ color: '#0f172a', fontWeight: 700, mb: 1 }}>
                 Spatial Footprint Summary
               </Typography>
-              <Divider sx={{ borderColor: 'rgba(148, 163, 184, 0.25)', mb: 2 }} />
+              <Divider sx={{ borderColor: '#e2e8f0', mb: 2 }} />
               <Stack spacing={1.5}>
                 <Stack direction="row" justifyContent="space-between">
-                  <Typography sx={{ color: 'rgba(226, 232, 240, 0.8)' }}>Processed Area</Typography>
-                  <Typography sx={{ color: '#f8fafc', fontWeight: 600 }}>
+                  <Typography sx={{ color: '#475569' }}>Processed Area</Typography>
+                  <Typography sx={{ color: '#0f172a', fontWeight: 600 }}>
                     {formatNumber(totalTileAreaHa, 2)} ha
                   </Typography>
                 </Stack>
                 <Stack direction="row" justifyContent="space-between">
-                  <Typography sx={{ color: 'rgba(226, 232, 240, 0.8)' }}>Detected Mining Activity</Typography>
-                  <Typography sx={{ color: '#f8fafc', fontWeight: 600 }}>
+                  <Typography sx={{ color: '#475569' }}>Detected Mining Activity</Typography>
+                  <Typography sx={{ color: '#0f172a', fontWeight: 600 }}>
                     {formatNumber(miningAreaHa, 2)} ha
                   </Typography>
                 </Stack>
                 <Stack direction="row" justifyContent="space-between">
-                  <Typography sx={{ color: 'rgba(226, 232, 240, 0.8)' }}>Coverage of Mining</Typography>
-                  <Typography sx={{ color: '#f8fafc', fontWeight: 600 }}>
+                  <Typography sx={{ color: '#475569' }}>Coverage of Mining</Typography>
+                  <Typography sx={{ color: '#0f172a', fontWeight: 600 }}>
                     {formatNumber(tileAreaMetrics.coveragePct ?? null, 1)}%
                   </Typography>
                 </Stack>
@@ -2959,35 +2960,37 @@ const QuantitativeResultsPage = () => {
             <Paper
               sx={{
                 p: 3,
-                background: 'rgba(26, 26, 46, 0.75)',
-                border: '1px solid rgba(148, 163, 184, 0.25)',
+                background: 'linear-gradient(155deg, rgba(237, 233, 254, 0.92) 0%, rgba(255, 255, 255, 0.98) 100%)',
+                border: '1px solid rgba(139, 92, 246, 0.32)',
+                borderRadius: 2,
+                boxShadow: '0 18px 34px rgba(139, 92, 246, 0.16)',
               }}
               elevation={0}
             >
-              <Typography sx={{ color: '#fcd34d', fontWeight: 700, mb: 1 }}>
+              <Typography sx={{ color: '#0f172a', fontWeight: 700, mb: 1 }}>
                 Confidence Distribution
               </Typography>
-              <Divider sx={{ borderColor: 'rgba(148, 163, 184, 0.25)', mb: 2 }} />
+              <Divider sx={{ borderColor: '#e2e8f0', mb: 2 }} />
               <Stack spacing={1.5}>
                 <Stack direction="row" justifyContent="space-between">
-                  <Typography sx={{ color: 'rgba(226, 232, 240, 0.8)' }}>Average Confidence</Typography>
-                  <Typography sx={{ color: '#f8fafc', fontWeight: 600 }}>
+                  <Typography sx={{ color: '#475569' }}>Average Confidence</Typography>
+                  <Typography sx={{ color: '#0f172a', fontWeight: 600 }}>
                     {formatNumber(confidenceMetrics.averagePct, 1)}%
                   </Typography>
                 </Stack>
                 <Stack direction="row" justifyContent="space-between">
-                  <Typography sx={{ color: 'rgba(226, 232, 240, 0.8)' }}>Peak Confidence</Typography>
-                  <Typography sx={{ color: '#f8fafc', fontWeight: 600 }}>
+                  <Typography sx={{ color: '#475569' }}>Peak Confidence</Typography>
+                  <Typography sx={{ color: '#0f172a', fontWeight: 600 }}>
                     {formatNumber(confidenceMetrics.maxPct, 1)}%
                   </Typography>
                 </Stack>
                 <Stack direction="row" justifyContent="space-between">
-                  <Typography sx={{ color: 'rgba(226, 232, 240, 0.8)' }}>Lowest Confidence</Typography>
-                  <Typography sx={{ color: '#f8fafc', fontWeight: 600 }}>
+                  <Typography sx={{ color: '#475569' }}>Lowest Confidence</Typography>
+                  <Typography sx={{ color: '#0f172a', fontWeight: 600 }}>
                     {formatNumber(confidenceMetrics.minPct, 1)}%
                   </Typography>
                 </Stack>
-                <Typography sx={{ color: 'rgba(148, 163, 184, 0.7)', fontSize: '0.75rem' }}>
+                <Typography sx={{ color: '#64748b', fontSize: '0.75rem' }}>
                   Samples gathered from {confidenceMetrics.sampleCount} mined blocks with persistent identifiers applied where available.
                 </Typography>
               </Stack>
@@ -2998,46 +3001,48 @@ const QuantitativeResultsPage = () => {
             <Paper
               sx={{
                 p: 3,
-                background: 'rgba(26, 26, 46, 0.75)',
-                border: '1px solid rgba(148, 163, 184, 0.25)',
+                background: 'linear-gradient(155deg, rgba(255, 247, 237, 0.94) 0%, rgba(255, 255, 255, 0.98) 100%)',
+                border: '1px solid rgba(249, 115, 22, 0.28)',
+                borderRadius: 2,
+                boxShadow: '0 18px 34px rgba(249, 115, 22, 0.12)',
                 minHeight: 196,
               }}
               elevation={0}
             >
-              <Typography sx={{ color: '#fcd34d', fontWeight: 700, mb: 1 }}>
+              <Typography sx={{ color: '#0f172a', fontWeight: 700, mb: 1 }}>
                 Volumetric Summary
               </Typography>
-              <Divider sx={{ borderColor: 'rgba(148, 163, 184, 0.25)', mb: 2 }} />
+              <Divider sx={{ borderColor: '#e2e8f0', mb: 2 }} />
               {quantitativeLoading && !volumetricSummary ? (
                 <Stack spacing={1.5} alignItems="center" justifyContent="center" sx={{ minHeight: 120 }}>
                   <LinearProgress sx={{ width: '100%' }} color="warning" />
-                  <Typography sx={{ color: 'rgba(226, 232, 240, 0.75)', fontSize: '0.85rem' }}>
+                  <Typography sx={{ color: '#64748b', fontSize: '0.85rem' }}>
                     Generating DEM-aligned volume metrics…
                   </Typography>
                 </Stack>
               ) : volumetricSummary ? (
                 <Stack spacing={1.5}>
                   <Stack direction="row" justifyContent="space-between">
-                    <Typography sx={{ color: 'rgba(226, 232, 240, 0.8)' }}>Total Volume</Typography>
-                    <Typography sx={{ color: '#f8fafc', fontWeight: 600 }}>
+                    <Typography sx={{ color: '#475569' }}>Total Volume</Typography>
+                    <Typography sx={{ color: '#0f172a', fontWeight: 600 }}>
                       {formatVolume(volumetricSummary.totalVolumeCubicMeters)}
                     </Typography>
                   </Stack>
                   <Stack direction="row" justifyContent="space-between">
-                    <Typography sx={{ color: 'rgba(226, 232, 240, 0.8)' }}>Excavated Area</Typography>
-                    <Typography sx={{ color: '#f8fafc', fontWeight: 600 }}>
+                    <Typography sx={{ color: '#475569' }}>Excavated Area</Typography>
+                    <Typography sx={{ color: '#0f172a', fontWeight: 600 }}>
                       {formatNumber(volumetricAreaHa, 2)} ha
                     </Typography>
                   </Stack>
                   <Stack direction="row" justifyContent="space-between">
-                    <Typography sx={{ color: 'rgba(226, 232, 240, 0.8)' }}>Avg. Max Depth</Typography>
-                    <Typography sx={{ color: '#f8fafc', fontWeight: 600 }}>
+                    <Typography sx={{ color: '#475569' }}>Avg. Max Depth</Typography>
+                    <Typography sx={{ color: '#0f172a', fontWeight: 600 }}>
                       {formatNumber(volumetricSummary.averageMaxDepthMeters, 2)} m
                     </Typography>
                   </Stack>
                   {volumetricSummary.deepestBlock && (
-                    <Typography sx={{ color: 'rgba(148, 163, 184, 0.75)', fontSize: '0.8rem' }}>
-                      Deepest block <Box component="span" sx={{ color: '#fcd34d', fontWeight: 600 }}>
+                    <Typography sx={{ color: '#64748b', fontSize: '0.8rem' }}>
+                      Deepest block <Box component="span" sx={{ color: '#1d4ed8', fontWeight: 600 }}>
                         {volumetricSummary.deepestBlock.label}
                       </Box>{' '}
                       reaches {formatNumber(volumetricSummary.deepestBlock.maxDepthMeters, 2)} m with volume{' '}
@@ -3046,7 +3051,7 @@ const QuantitativeResultsPage = () => {
                   )}
                 </Stack>
               ) : (
-                <Typography sx={{ color: 'rgba(148, 163, 184, 0.75)', fontSize: '0.85rem' }}>
+                <Typography sx={{ color: '#64748b', fontSize: '0.85rem' }}>
                   Volumetric metrics will appear after the quantitative pipeline completes.
                 </Typography>
               )}
@@ -3057,51 +3062,53 @@ const QuantitativeResultsPage = () => {
             <Paper
               sx={{
                 p: 3,
-                background: 'rgba(26, 26, 46, 0.75)',
-                border: '1px solid rgba(148, 163, 184, 0.25)',
+                background: 'linear-gradient(150deg, rgba(236, 253, 245, 0.94) 0%, rgba(255, 255, 255, 0.98) 100%)',
+                border: '1px solid rgba(34, 197, 94, 0.28)',
+                borderRadius: 2,
+                boxShadow: '0 18px 34px rgba(34, 197, 94, 0.12)',
               }}
               elevation={0}
             >
-              <Typography sx={{ color: '#fcd34d', fontWeight: 700, mb: 1 }}>
+              <Typography sx={{ color: '#0f172a', fontWeight: 700, mb: 1 }}>
                 Block Inventory Overview
               </Typography>
-              <Divider sx={{ borderColor: 'rgba(148, 163, 184, 0.25)', mb: 2 }} />
+              <Divider sx={{ borderColor: '#e2e8f0', mb: 2 }} />
               <Grid container spacing={2}>
                 <Grid size={{ xs: 12, md: 3 }}>
-                  <Typography sx={{ color: 'rgba(226, 232, 240, 0.7)' }}>Mean Block Area</Typography>
-                  <Typography sx={{ color: '#f8fafc', fontWeight: 600, fontSize: '1.15rem' }}>
+                  <Typography sx={{ color: '#475569' }}>Mean Block Area</Typography>
+                  <Typography sx={{ color: '#0f172a', fontWeight: 600, fontSize: '1.15rem' }}>
                     {formatNumber(blockAnalytics.averageBlockAreaHa, 2)} ha
                   </Typography>
                 </Grid>
                 <Grid size={{ xs: 12, md: 3 }}>
-                  <Typography sx={{ color: 'rgba(226, 232, 240, 0.7)' }}>Total Detected Area</Typography>
-                  <Typography sx={{ color: '#f8fafc', fontWeight: 600, fontSize: '1.15rem' }}>
+                  <Typography sx={{ color: '#475569' }}>Total Detected Area</Typography>
+                  <Typography sx={{ color: '#0f172a', fontWeight: 600, fontSize: '1.15rem' }}>
                     {formatNumber(blockAnalytics.totalAreaHa, 2)} ha
                   </Typography>
                 </Grid>
                 <Grid size={{ xs: 12, md: 3 }}>
-                  <Typography sx={{ color: 'rgba(226, 232, 240, 0.7)' }}>Average Confidence</Typography>
-                  <Typography sx={{ color: '#f8fafc', fontWeight: 600, fontSize: '1.15rem' }}>
+                  <Typography sx={{ color: '#475569' }}>Average Confidence</Typography>
+                  <Typography sx={{ color: '#0f172a', fontWeight: 600, fontSize: '1.15rem' }}>
                     {formatNumber(blockAnalytics.averageConfidence, 1)}%
                   </Typography>
-                  <Typography sx={{ color: 'rgba(148, 163, 184, 0.7)', fontSize: '0.75rem', mt: 0.5 }}>
+                  <Typography sx={{ color: '#64748b', fontSize: '0.75rem', mt: 0.5 }}>
                     Range {formatNumber(blockAnalytics.minConfidence, 1)}% – {formatNumber(blockAnalytics.maxConfidence, 1)}%
                   </Typography>
                 </Grid>
                 <Grid size={{ xs: 12, md: 3 }}>
-                  <Typography sx={{ color: 'rgba(226, 232, 240, 0.7)' }}>Average Max Depth</Typography>
-                  <Typography sx={{ color: '#f8fafc', fontWeight: 600, fontSize: '1.15rem' }}>
+                  <Typography sx={{ color: '#475569' }}>Average Max Depth</Typography>
+                  <Typography sx={{ color: '#0f172a', fontWeight: 600, fontSize: '1.15rem' }}>
                     {formatNumber(blockAnalytics.averageMaxDepth, 2)} m
                   </Typography>
                   {blockAnalytics.averageMeanDepth !== null && (
-                    <Typography sx={{ color: 'rgba(148, 163, 184, 0.7)', fontSize: '0.75rem', mt: 0.5 }}>
+                    <Typography sx={{ color: '#64748b', fontSize: '0.75rem', mt: 0.5 }}>
                       Mean depth {formatNumber(blockAnalytics.averageMeanDepth, 2)} m
                     </Typography>
                   )}
                 </Grid>
               </Grid>
               {blockAnalytics.totalVolumeCubicMeters !== null && (
-                <Typography sx={{ color: 'rgba(148, 163, 184, 0.75)', fontSize: '0.8rem', mt: 2 }}>
+                <Typography sx={{ color: '#64748b', fontSize: '0.8rem', mt: 2 }}>
                   Aggregate excavated volume {formatVolume(blockAnalytics.totalVolumeCubicMeters)} across analysed blocks
                 </Typography>
               )}
@@ -3113,37 +3120,46 @@ const QuantitativeResultsPage = () => {
               <Paper
                 sx={{
                   p: 3,
-                  background: 'rgba(15, 52, 96, 0.55)',
-                  border: '1px solid rgba(148, 163, 184, 0.25)',
+                  background: 'linear-gradient(150deg, rgba(240, 249, 255, 0.92) 0%, rgba(248, 250, 252, 0.98) 100%)',
+                  border: '1px solid rgba(59, 130, 246, 0.22)',
+                  borderRadius: 2,
+                  boxShadow: '0 18px 34px rgba(59, 130, 246, 0.12)',
                 }}
                 elevation={0}
               >
                 <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-                  <Typography sx={{ color: '#fcd34d', fontWeight: 700 }}>
+                  <Typography sx={{ color: '#0f172a', fontWeight: 700 }}>
                     DEM Visual Evidence (per block)
                   </Typography>
-                  <Typography sx={{ color: 'rgba(148, 163, 184, 0.75)', fontSize: '0.75rem' }}>
+                  <Typography sx={{ color: '#64748b', fontSize: '0.75rem' }}>
                     Drag the 3D surface to inspect slope and volume. Mouse wheel zooms the contour view.
                   </Typography>
                 </Stack>
                 <TableContainer
                   sx={{
                     borderRadius: 2,
-                    border: '1px solid rgba(148, 163, 184, 0.25)',
+                    border: '1px solid rgba(96, 165, 250, 0.35)',
                     maxHeight: '70vh',
                     overflow: 'auto',
                   }}
                 >
-                  <Table stickyHeader size="small" sx={{ minWidth: 960 }}>
+                  <Table
+                    stickyHeader
+                    size="small"
+                    sx={{
+                      minWidth: 960,
+                      background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(240, 249, 255, 0.92) 100%)',
+                    }}
+                  >
                     <TableHead>
                       <TableRow>
-                        <TableCell sx={{ color: '#e2e8f0', backgroundColor: 'rgba(15, 23, 42, 0.8)', fontWeight: 700 }}>Block</TableCell>
-                        <TableCell sx={{ color: '#e2e8f0', backgroundColor: 'rgba(15, 23, 42, 0.8)', fontWeight: 700 }}>Volume & Depth</TableCell>
-                        <TableCell sx={{ color: '#e2e8f0', backgroundColor: 'rgba(15, 23, 42, 0.8)', fontWeight: 700 }}>Satellite Mosaic</TableCell>
-                        <TableCell sx={{ color: '#e2e8f0', backgroundColor: 'rgba(15, 23, 42, 0.8)', fontWeight: 700 }}>
+                        <TableCell sx={{ color: '#0f172a', backgroundColor: '#f1f5f9', fontWeight: 700, borderBottom: '1px solid #e2e8f0' }}>Block</TableCell>
+                        <TableCell sx={{ color: '#0f172a', backgroundColor: '#f1f5f9', fontWeight: 700, borderBottom: '1px solid #e2e8f0' }}>Volume & Depth</TableCell>
+                        <TableCell sx={{ color: '#0f172a', backgroundColor: '#f1f5f9', fontWeight: 700, borderBottom: '1px solid #e2e8f0' }}>Satellite Mosaic</TableCell>
+                        <TableCell sx={{ color: '#0f172a', backgroundColor: '#f1f5f9', fontWeight: 700, borderBottom: '1px solid #e2e8f0' }}>
                           2D Elevation Contours
                         </TableCell>
-                        <TableCell sx={{ color: '#e2e8f0', backgroundColor: 'rgba(15, 23, 42, 0.8)', fontWeight: 700 }}>
+                        <TableCell sx={{ color: '#0f172a', backgroundColor: '#f1f5f9', fontWeight: 700, borderBottom: '1px solid #e2e8f0' }}>
                           3D Terrain Surface
                         </TableCell>
                       </TableRow>
@@ -3158,30 +3174,30 @@ const QuantitativeResultsPage = () => {
                           <TableRow
                             key={block.blockId ?? block.blockLabel}
                             hover
-                            sx={{ '&:nth-of-type(even)': { backgroundColor: 'rgba(15, 23, 42, 0.35)' } }}
+                            sx={{ '&:nth-of-type(even)': { backgroundColor: '#f8fafc' } }}
                           >
-                            <TableCell sx={{ color: '#e2e8f0', verticalAlign: 'top', width: 220 }}>
-                              <Typography sx={{ fontWeight: 600 }}>{block.blockLabel}</Typography>
-                              <Typography sx={{ color: 'rgba(148, 163, 184, 0.75)', fontSize: '0.75rem', mt: 0.5 }}>
+                            <TableCell sx={{ color: '#0f172a', verticalAlign: 'top', width: 220 }}>
+                              <Typography sx={{ fontWeight: 600, color: '#0f172a' }}>{block.blockLabel}</Typography>
+                              <Typography sx={{ color: '#64748b', fontSize: '0.75rem', mt: 0.5 }}>
                                 Source: {block.source ?? 'N/A'} · ID: {block.blockId}
                               </Typography>
-                              <Typography sx={{ color: 'rgba(148, 163, 184, 0.75)', fontSize: '0.75rem', mt: 0.5 }}>
+                              <Typography sx={{ color: '#64748b', fontSize: '0.75rem', mt: 0.5 }}>
                                 Area {formatNumber(block.areaHectares, 2)} ha · Rim {formatNumber(block.rimElevationMeters, 1)} m
                               </Typography>
                             </TableCell>
-                            <TableCell sx={{ color: '#e2e8f0', verticalAlign: 'top', width: 200 }}>
+                            <TableCell sx={{ color: '#0f172a', verticalAlign: 'top', width: 200 }}>
                               <Stack spacing={0.75}>
-                                <Typography sx={{ fontWeight: 600 }}>
+                                <Typography sx={{ fontWeight: 600, color: '#0f172a' }}>
                                   {formatVolume(block.volumeCubicMeters ?? null)}
                                 </Typography>
-                                <Typography sx={{ color: 'rgba(148, 163, 184, 0.75)', fontSize: '0.75rem' }}>
+                                <Typography sx={{ color: '#64748b', fontSize: '0.75rem' }}>
                                   Max depth {formatNumber(block.maxDepthMeters, 2)} m
                                 </Typography>
-                                <Typography sx={{ color: 'rgba(148, 163, 184, 0.75)', fontSize: '0.75rem' }}>
+                                <Typography sx={{ color: '#64748b', fontSize: '0.75rem' }}>
                                   Mean depth {formatNumber(block.meanDepthMeters, 2)} m
                                 </Typography>
                                 {stats && (
-                                  <Typography sx={{ color: 'rgba(148, 163, 184, 0.75)', fontSize: '0.75rem' }}>
+                                  <Typography sx={{ color: '#64748b', fontSize: '0.75rem' }}>
                                     Elevation range {formatNumber(stats.minElevation ?? null, 1)} – {formatNumber(stats.maxElevation ?? null, 1)} m
                                   </Typography>
                                 )}
@@ -3192,14 +3208,14 @@ const QuantitativeResultsPage = () => {
                             </TableCell>
                             <TableCell sx={{ minWidth: 320, verticalAlign: 'top' }}>
                               {grid ? <ContourPlot grid={grid} extent={extent} /> : (
-                                <Typography sx={{ color: 'rgba(148, 163, 184, 0.75)', fontSize: '0.8rem' }}>
+                                <Typography sx={{ color: '#64748b', fontSize: '0.8rem' }}>
                                   Not available
                                 </Typography>
                               )}
                             </TableCell>
                             <TableCell sx={{ minWidth: 320, verticalAlign: 'top' }}>
                               {grid ? <SurfacePlot grid={grid} extent={extent} /> : (
-                                <Typography sx={{ color: 'rgba(148, 163, 184, 0.75)', fontSize: '0.8rem' }}>
+                                <Typography sx={{ color: '#64748b', fontSize: '0.8rem' }}>
                                   Not available
                                 </Typography>
                               )}
@@ -3218,18 +3234,20 @@ const QuantitativeResultsPage = () => {
             <Paper
               sx={{
                 p: 3,
-                background: 'rgba(26, 26, 46, 0.75)',
-                border: '1px solid rgba(148, 163, 184, 0.25)',
+                background: 'linear-gradient(150deg, rgba(226, 232, 240, 0.65) 0%, rgba(248, 250, 252, 0.96) 100%)',
+                border: '1px solid rgba(148, 163, 184, 0.38)',
+                borderRadius: 2,
+                boxShadow: '0 18px 34px rgba(100, 116, 139, 0.18)',
               }}
               elevation={0}
             >
               <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-                <Typography sx={{ color: '#fcd34d', fontWeight: 700 }}>
+                <Typography sx={{ color: '#0f172a', fontWeight: 700 }}>
                   Quantitative Pipeline
                 </Typography>
                 <Stack direction="row" spacing={1.5} alignItems="center">
                   {quantitativeLoading && (
-                    <Typography sx={{ color: 'rgba(148, 163, 184, 0.75)', fontSize: '0.75rem' }}>
+                    <Typography sx={{ color: '#64748b', fontSize: '0.75rem' }}>
                       Processing…
                     </Typography>
                   )}
@@ -3244,19 +3262,19 @@ const QuantitativeResultsPage = () => {
                         : <Autorenew fontSize="small" />
                     }
                     sx={{
-                      backgroundColor: 'rgba(59, 130, 246, 0.25)',
-                      color: '#dbeafe',
+                      backgroundColor: '#2563eb',
+                      color: '#ffffff',
                       textTransform: 'none',
                       borderRadius: 1.5,
                       boxShadow: 'none',
                       transition: 'background-color 0.15s ease',
                       '&:hover': {
-                        backgroundColor: 'rgba(59, 130, 246, 0.4)',
+                        backgroundColor: '#1d4ed8',
                         boxShadow: 'none',
                       },
                       '&.Mui-disabled': {
-                        backgroundColor: 'rgba(30, 64, 175, 0.25)',
-                        color: 'rgba(191, 219, 254, 0.6)',
+                        backgroundColor: '#bfdbfe',
+                        color: '#64748b',
                       },
                     }}
                   >
@@ -3264,7 +3282,7 @@ const QuantitativeResultsPage = () => {
                   </Button>
                 </Stack>
               </Stack>
-              <Divider sx={{ borderColor: 'rgba(148, 163, 184, 0.25)', mb: 2 }} />
+              <Divider sx={{ borderColor: '#e2e8f0', mb: 2 }} />
               {quantitativeLoading && (
                 <LinearProgress color="warning" sx={{ mb: 2 }} />
               )}
@@ -3274,8 +3292,9 @@ const QuantitativeResultsPage = () => {
                     key={step.name}
                     sx={{
                       p: 1.5,
-                      background: 'rgba(15, 52, 96, 0.45)',
-                      border: '1px solid rgba(148, 163, 184, 0.2)',
+                      background: 'linear-gradient(150deg, rgba(248, 250, 252, 0.96) 0%, rgba(224, 231, 255, 0.75) 100%)',
+                      border: '1px solid rgba(148, 163, 184, 0.3)',
+                      borderRadius: 1.5,
                     }}
                     elevation={0}
                   >
@@ -3283,17 +3302,17 @@ const QuantitativeResultsPage = () => {
                       <StepStatusIcon status={step.status} />
                       <Box sx={{ flex: 1 }}>
                         <Stack direction="row" justifyContent="space-between" alignItems="center">
-                          <Typography sx={{ color: '#e2e8f0', fontWeight: 600 }}>
+                          <Typography sx={{ color: '#0f172a', fontWeight: 600 }}>
                             {step.name}
                           </Typography>
-                          <Typography sx={{ color: 'rgba(148, 163, 184, 0.7)', fontSize: '0.75rem' }}>
+                          <Typography sx={{ color: '#64748b', fontSize: '0.75rem' }}>
                             {formatDurationMs(step.durationMs)}
                           </Typography>
                         </Stack>
                         {step.details?.length > 0 && (
                           <Stack component="ul" sx={{ pl: 2.5, mt: 0.75 }} spacing={0.25}>
                             {step.details.map((detail: string, idx: number) => (
-                              <Typography component="li" key={`${step.name}-${idx}`} sx={{ color: 'rgba(226, 232, 240, 0.75)', fontSize: '0.75rem' }}>
+                              <Typography component="li" key={`${step.name}-${idx}`} sx={{ color: '#475569', fontSize: '0.75rem' }}>
                                 {detail}
                               </Typography>
                             ))}
@@ -3304,7 +3323,7 @@ const QuantitativeResultsPage = () => {
                   </Paper>
                 ))}
                 {!quantitativeSteps.length && !quantitativeLoading && (
-                  <Typography sx={{ color: 'rgba(148, 163, 184, 0.75)', fontSize: '0.85rem' }}>
+                  <Typography sx={{ color: '#64748b', fontSize: '0.85rem' }}>
                     Detailed step logs will appear once the volumetric analysis is executed for this result.
                   </Typography>
                 )}
@@ -3317,29 +3336,31 @@ const QuantitativeResultsPage = () => {
               <Paper
                 sx={{
                   p: 3,
-                  background: 'rgba(26, 26, 46, 0.75)',
-                  border: '1px solid rgba(148, 163, 184, 0.25)',
+                  background: 'linear-gradient(165deg, rgba(248, 250, 252, 0.96) 0%, rgba(226, 232, 240, 0.92) 100%)',
+                  border: '1px solid rgba(148, 163, 184, 0.28)',
+                  boxShadow: '0 14px 34px rgba(15, 23, 42, 0.08)',
+                  borderRadius: 2,
                 }}
                 elevation={0}
               >
-                <Typography sx={{ color: '#fcd34d', fontWeight: 700, mb: 1 }}>
+                <Typography sx={{ color: '#0f172a', fontWeight: 700, mb: 1 }}>
                   DEM Inputs
                 </Typography>
-                <Divider sx={{ borderColor: 'rgba(148, 163, 184, 0.25)', mb: 2 }} />
+                <Divider sx={{ borderColor: 'rgba(148, 163, 184, 0.35)', mb: 2 }} />
                 <Stack spacing={1.25}>
                   <Stack direction="row" justifyContent="space-between">
-                    <Typography sx={{ color: 'rgba(226, 232, 240, 0.8)' }}>CRS</Typography>
-                    <Typography sx={{ color: '#f8fafc', fontWeight: 600 }}>{demInfo.crs}</Typography>
+                    <Typography sx={{ color: '#475569', fontWeight: 500 }}>CRS</Typography>
+                    <Typography sx={{ color: '#0f172a', fontWeight: 600 }}>{demInfo.crs}</Typography>
                   </Stack>
                   <Stack direction="row" justifyContent="space-between">
-                    <Typography sx={{ color: 'rgba(226, 232, 240, 0.8)' }}>Resolution</Typography>
-                    <Typography sx={{ color: '#f8fafc', fontWeight: 600 }}>{formatNumber(demInfo.resolutionMeters, 0)} m</Typography>
+                    <Typography sx={{ color: '#475569', fontWeight: 500 }}>Resolution</Typography>
+                    <Typography sx={{ color: '#0f172a', fontWeight: 600 }}>{formatNumber(demInfo.resolutionMeters, 0)} m</Typography>
                   </Stack>
                   <Stack direction="row" justifyContent="space-between">
-                    <Typography sx={{ color: 'rgba(226, 232, 240, 0.8)' }}>Tiles Fetched</Typography>
-                    <Typography sx={{ color: '#f8fafc', fontWeight: 600 }}>{demInfo.tileCount}</Typography>
+                    <Typography sx={{ color: '#475569', fontWeight: 500 }}>Tiles Fetched</Typography>
+                    <Typography sx={{ color: '#0f172a', fontWeight: 600 }}>{demInfo.tileCount}</Typography>
                   </Stack>
-                  <Typography sx={{ color: 'rgba(148, 163, 184, 0.7)', fontSize: '0.75rem' }}>
+                  <Typography sx={{ color: '#64748b', fontSize: '0.8rem' }}>
                     WGS84 Bounds: {demInfo.boundsWGS84.map((value: number) => value.toFixed(4)).join(', ')}
                   </Typography>
                 </Stack>
@@ -3356,31 +3377,33 @@ const QuantitativeResultsPage = () => {
           sx={{
             mt: 4,
             p: 2.5,
-            background: 'rgba(26, 26, 46, 0.75)',
-            border: '1px solid rgba(148, 163, 184, 0.25)',
+            background: 'linear-gradient(165deg, rgba(248, 250, 252, 0.96) 0%, rgba(226, 232, 240, 0.92) 100%)',
+            border: '1px solid rgba(148, 163, 184, 0.28)',
+            boxShadow: '0 14px 34px rgba(15, 23, 42, 0.08)',
+            borderRadius: 2,
           }}
           elevation={0}
         >
-          <Typography sx={{ color: '#fcd34d', fontWeight: 700, mb: 1 }}>
+          <Typography sx={{ color: '#0f172a', fontWeight: 700, mb: 1 }}>
             Analysis Metadata
           </Typography>
-          <Divider sx={{ borderColor: 'rgba(148, 163, 184, 0.25)', mb: 1.5 }} />
+          <Divider sx={{ borderColor: 'rgba(148, 163, 184, 0.35)', mb: 1.5 }} />
           <Grid container spacing={2}>
             <Grid size={{ xs: 12, md: 4 }}>
-              <Typography sx={{ color: 'rgba(226, 232, 240, 0.7)' }}>Started</Typography>
-              <Typography sx={{ color: '#f8fafc', fontWeight: 600 }}>
+              <Typography sx={{ color: '#475569', fontWeight: 500 }}>Started</Typography>
+              <Typography sx={{ color: '#0f172a', fontWeight: 600 }}>
                 {formatDate(historyRecord?.startTime)}
               </Typography>
             </Grid>
             <Grid size={{ xs: 12, md: 4 }}>
-              <Typography sx={{ color: 'rgba(226, 232, 240, 0.7)' }}>Completed</Typography>
-              <Typography sx={{ color: '#f8fafc', fontWeight: 600 }}>
+              <Typography sx={{ color: '#475569', fontWeight: 500 }}>Completed</Typography>
+              <Typography sx={{ color: '#0f172a', fontWeight: 600 }}>
                 {formatDate(historyRecord?.endTime)}
               </Typography>
             </Grid>
             <Grid size={{ xs: 12, md: 4 }}>
-              <Typography sx={{ color: 'rgba(226, 232, 240, 0.7)' }}>Duration (mins)</Typography>
-              <Typography sx={{ color: '#f8fafc', fontWeight: 600 }}>
+              <Typography sx={{ color: '#475569', fontWeight: 500 }}>Duration (mins)</Typography>
+              <Typography sx={{ color: '#0f172a', fontWeight: 600 }}>
                 {historyRecord?.duration ? formatNumber(historyRecord.duration / 60, 1) : '--'}
               </Typography>
             </Grid>

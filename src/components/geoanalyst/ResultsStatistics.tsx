@@ -9,12 +9,12 @@ import {
 import { styled } from '@mui/material/styles';
 import { deriveTileAreaMetrics, deriveConfidenceMetrics, parseNumeric } from '@/lib/analysisMetrics';
 
-const GoldenText = styled(Typography)({
-  background: 'linear-gradient(to right, #fbbf24, #fcd34d, #fbbf24)',
-  backgroundClip: 'text',
-  WebkitBackgroundClip: 'text',
-  WebkitTextFillColor: 'transparent',
-  filter: 'drop-shadow(0 2px 4px rgba(251, 191, 36, 0.3))'
+const SectionHeading = styled(Typography)({
+  fontSize: '0.75rem',
+  fontWeight: 600,
+  letterSpacing: '0.12em',
+  textTransform: 'uppercase',
+  color: '#0f172a',
 });
 
 interface AnalysisSummary {
@@ -185,14 +185,14 @@ export const ResultsStatistics: React.FC<ResultsStatisticsProps> = ({ results, o
       <Paper
         sx={{
           p: 2,
-          background: 'rgba(12, 18, 28, 0.9)',
-          border: '1px solid rgba(148, 163, 184, 0.25)',
+          backgroundColor: '#f0f9ff',
+          border: '1px solid #bae6fd',
+          borderRadius: 2,
+          boxShadow: '0 12px 32px rgba(15, 23, 42, 0.06)',
         }}
         elevation={0}
       >
-        <GoldenText variant="subtitle2" fontWeight="bold" sx={{ mb: 1 }}>
-          SUMMARY
-        </GoldenText>
+        <SectionHeading sx={{ mb: 1 }}>SUMMARY</SectionHeading>
         <Box
           sx={{
             display: 'grid',
@@ -207,16 +207,16 @@ export const ResultsStatistics: React.FC<ResultsStatisticsProps> = ({ results, o
                 display: 'flex',
                 flexDirection: 'column',
                 gap: 0.5,
-                background: 'rgba(30, 41, 59, 0.7)',
-                border: '1px solid rgba(148, 163, 184, 0.18)',
+                backgroundColor: '#ffffff',
+                border: '1px solid #e0f2fe',
                 borderRadius: 1.5,
                 p: 1.5,
               }}
             >
-              <Typography sx={{ color: 'rgba(148, 163, 184, 0.75)', fontSize: '0.7rem' }}>
+              <Typography sx={{ color: '#64748b', fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.04em' }}>
                 {metric.label}
               </Typography>
-              <Typography sx={{ color: '#e2e8f0', fontSize: '1.2rem', fontFamily: 'monospace' }}>
+              <Typography sx={{ color: '#0f172a', fontSize: '1.4rem', fontFamily: 'monospace' }}>
                 {metric.value}
               </Typography>
             </Box>
@@ -227,14 +227,16 @@ export const ResultsStatistics: React.FC<ResultsStatisticsProps> = ({ results, o
       <Paper
         sx={{
           p: 2,
-          background: 'rgba(12, 18, 28, 0.9)',
-          border: '1px solid rgba(148, 163, 184, 0.25)',
+          backgroundColor: '#f0fdf4',
+          border: '1px solid #bbf7d0',
+          borderRadius: 2,
+          boxShadow: '0 12px 32px rgba(15, 23, 42, 0.06)',
         }}
         elevation={0}
       >
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
           <Box>
-            <Typography sx={{ color: 'rgba(148, 163, 184, 0.75)', fontSize: '0.7rem', mb: 0.5 }}>
+            <Typography sx={{ color: '#64748b', fontSize: '0.7rem', mb: 0.5, fontWeight: 600, letterSpacing: '0.04em' }}>
               COVERAGE
             </Typography>
             <LinearProgress
@@ -243,20 +245,20 @@ export const ResultsStatistics: React.FC<ResultsStatisticsProps> = ({ results, o
               sx={{
                 height: 6,
                 borderRadius: 3,
-                backgroundColor: 'rgba(51, 65, 85, 0.6)',
+                backgroundColor: '#e2e8f0',
                 '& .MuiLinearProgress-bar': {
-                  backgroundColor: '#38bdf8',
+                  backgroundColor: '#0ea5e9',
                   borderRadius: 3,
                 },
               }}
             />
-            <Typography sx={{ color: '#e2e8f0', fontSize: '0.8rem', mt: 0.5, fontFamily: 'monospace' }}>
+            <Typography sx={{ color: '#0f172a', fontSize: '0.85rem', mt: 0.5, fontFamily: 'monospace' }}>
               {formatNumber(safeCoveragePct, 2)} %
             </Typography>
           </Box>
 
           <Box>
-            <Typography sx={{ color: 'rgba(148, 163, 184, 0.75)', fontSize: '0.7rem', mb: 0.5 }}>
+            <Typography sx={{ color: '#64748b', fontSize: '0.7rem', mb: 0.5, fontWeight: 600, letterSpacing: '0.04em' }}>
               CONFIDENCE
             </Typography>
             <LinearProgress
@@ -265,17 +267,17 @@ export const ResultsStatistics: React.FC<ResultsStatisticsProps> = ({ results, o
               sx={{
                 height: 6,
                 borderRadius: 3,
-                backgroundColor: 'rgba(51, 65, 85, 0.6)',
+                backgroundColor: '#e2e8f0',
                 '& .MuiLinearProgress-bar': {
-                  backgroundColor: '#22c55e',
+                  backgroundColor: '#10b981',
                   borderRadius: 3,
                 },
               }}
             />
-            <Typography sx={{ color: '#e2e8f0', fontSize: '0.8rem', mt: 0.5, fontFamily: 'monospace' }}>
+            <Typography sx={{ color: '#0f172a', fontSize: '0.85rem', mt: 0.5, fontFamily: 'monospace' }}>
               {confidenceBadgeParts.join(' | ')}
             </Typography>
-            <Typography sx={{ color: 'rgba(148, 163, 184, 0.7)', fontSize: '0.7rem', mt: 0.25 }}>
+            <Typography sx={{ color: '#64748b', fontSize: '0.7rem', mt: 0.25 }}>
               {confidenceSampleCount > 0
                 ? `${confidenceSampleCount} block sample${confidenceSampleCount === 1 ? '' : 's'} | ${confidenceSource === 'summary' ? 'summary fallback' : 'model probabilities'}`
                 : 'No block samples supplied; using summary statistic.'}
@@ -283,9 +285,9 @@ export const ResultsStatistics: React.FC<ResultsStatisticsProps> = ({ results, o
           </Box>
 
           {summaryMiningPixels !== undefined && summaryTotalPixels !== undefined && (
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', color: 'rgba(148, 163, 184, 0.8)', fontSize: '0.7rem' }}>
-              <Typography>PIXELS</Typography>
-              <Typography fontFamily="monospace" sx={{ color: '#e2e8f0' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', color: '#64748b', fontSize: '0.7rem' }}>
+              <Typography fontWeight={600}>PIXELS</Typography>
+              <Typography fontFamily="monospace" sx={{ color: '#0f172a' }}>
                 {formatNumber(summaryMiningPixels)} / {formatNumber(summaryTotalPixels)}
               </Typography>
             </Box>
@@ -296,41 +298,43 @@ export const ResultsStatistics: React.FC<ResultsStatisticsProps> = ({ results, o
       <Paper
         sx={{
           p: 2,
-          background: 'rgba(12, 18, 28, 0.9)',
-          border: '1px solid rgba(148, 163, 184, 0.25)',
+          backgroundColor: '#fefce8',
+          border: '1px solid #fde047',
+          borderRadius: 2,
+          boxShadow: '0 12px 32px rgba(15, 23, 42, 0.06)',
         }}
         elevation={0}
       >
         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 1.5 }}>
           <Box>
-            <Typography sx={{ color: 'rgba(148, 163, 184, 0.75)', fontSize: '0.7rem', mb: 0.5 }}>
+            <Typography sx={{ color: '#64748b', fontSize: '0.7rem', mb: 0.5, fontWeight: 600, letterSpacing: '0.04em' }}>
               ANALYSIS ID
             </Typography>
-            <Typography sx={{ color: '#e2e8f0', fontFamily: 'monospace', wordBreak: 'break-all' }}>
+            <Typography sx={{ color: '#0f172a', fontFamily: 'monospace', wordBreak: 'break-all' }}>
               {results.analysis_id ?? 'N/A'}
             </Typography>
           </Box>
           <Box>
-            <Typography sx={{ color: 'rgba(148, 163, 184, 0.75)', fontSize: '0.7rem', mb: 0.5 }}>
+            <Typography sx={{ color: '#64748b', fontSize: '0.7rem', mb: 0.5, fontWeight: 600, letterSpacing: '0.04em' }}>
               MASK SIZE
             </Typography>
-            <Typography sx={{ color: '#e2e8f0', fontFamily: 'monospace' }}>
+            <Typography sx={{ color: '#0f172a', fontFamily: 'monospace' }}>
               {resolutionLabel}
             </Typography>
           </Box>
           <Box>
-            <Typography sx={{ color: 'rgba(148, 163, 184, 0.75)', fontSize: '0.7rem', mb: 0.5 }}>
+            <Typography sx={{ color: '#64748b', fontSize: '0.7rem', mb: 0.5, fontWeight: 600, letterSpacing: '0.04em' }}>
               BOUNDS DELTA
             </Typography>
-            <Typography sx={{ color: '#e2e8f0', fontFamily: 'monospace' }}>
+            <Typography sx={{ color: '#0f172a', fontFamily: 'monospace' }}>
               {spanLabel}
             </Typography>
           </Box>
           <Box>
-            <Typography sx={{ color: 'rgba(148, 163, 184, 0.75)', fontSize: '0.7rem', mb: 0.5 }}>
+            <Typography sx={{ color: '#64748b', fontSize: '0.7rem', mb: 0.5, fontWeight: 600, letterSpacing: '0.04em' }}>
               CRS
             </Typography>
-            <Typography sx={{ color: '#e2e8f0', fontFamily: 'monospace' }}>
+            <Typography sx={{ color: '#0f172a', fontFamily: 'monospace' }}>
               {summary.crs ?? 'EPSG:4326'}
             </Typography>
           </Box>
@@ -342,18 +346,24 @@ export const ResultsStatistics: React.FC<ResultsStatisticsProps> = ({ results, o
           onClick={onOpenQuantitativeAnalysis}
           sx={{
             p: 1.5,
-            background: 'rgba(148, 163, 184, 0.12)',
-            border: '1px solid rgba(148, 163, 184, 0.3)',
+            backgroundColor: '#eff6ff',
+            border: '1px solid #bfdbfe',
+            borderRadius: 1.5,
             cursor: 'pointer',
             textAlign: 'center',
             userSelect: 'none',
+            transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+            '&:hover': {
+              transform: 'translateY(-2px)',
+              boxShadow: '0 10px 30px rgba(59, 130, 246, 0.18)',
+            },
           }}
           elevation={0}
         >
-          <Typography sx={{ color: '#e2e8f0', fontWeight: 600, letterSpacing: 1 }}>
+          <Typography sx={{ color: '#1d4ed8', fontWeight: 600, letterSpacing: 1 }}>
             QUANTITATIVE ANALYSIS
           </Typography>
-          <Typography sx={{ color: 'rgba(226, 232, 240, 0.75)', fontSize: '0.75rem', mt: 0.5 }}>
+          <Typography sx={{ color: '#1e293b', fontSize: '0.75rem', mt: 0.75 }}>
             Launch DEM-aligned depth and volume metrics
           </Typography>
         </Paper>

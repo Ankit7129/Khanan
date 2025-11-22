@@ -42,12 +42,17 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
 
-const GoldenText = styled(Typography)({
-  background: 'linear-gradient(to right, #fbbf24, #fcd34d, #fbbf24)',
-  backgroundClip: 'text',
-  WebkitBackgroundClip: 'text',
-  WebkitTextFillColor: 'transparent',
-  filter: 'drop-shadow(0 2px 4px rgba(251, 191, 36, 0.3))'
+const PageTitle = styled(Typography)({
+  fontWeight: 700,
+  color: '#0f172a',
+});
+
+const PanelHeading = styled(Typography)({
+  fontSize: '0.75rem',
+  fontWeight: 600,
+  letterSpacing: '0.12em',
+  textTransform: 'uppercase',
+  color: '#0f172a',
 });
 
 // API Base URL from environment
@@ -68,7 +73,7 @@ const ResultsPage = () => {
   const searchParams = useSearchParams();
   const analysisId = searchParams.get('id');
   const { isAuthenticated, loading: authLoading } = useAuth();
-  
+
   const [loading, setLoading] = useState(true);
   const [results, setResults] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
@@ -78,7 +83,7 @@ const ResultsPage = () => {
   const [isSaved, setIsSaved] = useState(false);
   const saveAttemptedRef = useRef(false); // Track save attempts to prevent duplicates
   const fetchAttemptedRef = useRef(false); // Track fetch attempts to prevent double-fetching
-  
+
   // Refs
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -141,21 +146,21 @@ const ResultsPage = () => {
         console.log('\n📥 ==================== FETCHING RESULTS ====================');
         console.log(`📋 Analysis ID: ${analysisId}`);
         console.log(`⏰ Timestamp: ${new Date().toISOString()}`);
-        
+
         // Mark as attempting
         fetchAttemptedRef.current = true;
-        
+
         console.log(`🔍 Fetching analysis results for ID: ${analysisId}`);
-        
+
         // Try Python backend first (in-memory, real-time results)
         let response = await fetch(`http://localhost:8000/api/v1/analysis/${analysisId}`);
-        
+
         if (!response.ok) {
           console.log('⚠️  Python backend unavailable, trying Node.js proxy...');
           // Fallback to Node.js backend
           response = await fetch(`${API_BASE_URL}/python/analysis/${analysisId}`);
         }
-        
+
         if (!response.ok) {
           console.log('⚠️  Live results not found, trying database...');
           // If live results not available, try fetching from database using service
@@ -170,10 +175,10 @@ const ResultsPage = () => {
           } catch (dbErr) {
             console.error('❌ Database fetch also failed:', dbErr);
           }
-          
+
           throw new Error(`Failed to fetch results: ${response.status} ${response.statusText}`);
         }
-        
+
         const data = await response.json();
         console.log('✅ Loaded analysis from Python backend (live)');
         console.log('📊 Results data:', data);
@@ -189,7 +194,7 @@ const ResultsPage = () => {
     };
 
     fetchResults();
-    
+
     // Cleanup function - reset refs when analysisId changes
     return () => {
       console.log('🧹 Cleanup: Resetting fetch/save refs for new analysis');
@@ -226,7 +231,7 @@ const ResultsPage = () => {
           tileCount: results.tiles?.length,
           hasAnalysisId: !!results.analysis_id
         });
-        
+
         const savePayload = {
           analysisId,
           results,
@@ -237,10 +242,10 @@ const ResultsPage = () => {
             source: 'results-page'
           }
         };
-        
+
         console.log('📤 Sending save request...');
         const response = await saveAnalysis(savePayload);
-        
+
         console.log('✅ Analysis auto-saved successfully');
         console.log(`   └─ Response:`, response.message);
         console.log('================================================================\n');
@@ -251,7 +256,7 @@ const ResultsPage = () => {
         console.error('   └─ Error:', err.message);
         console.error('   └─ Response:', err.response?.data);
         console.log('================================================================\n');
-        
+
         // Don't reset attempt flag - we already tried and failed
         // If it's a real error, user can manually retry
         saveAttemptedRef.current = true;
@@ -442,7 +447,7 @@ const ResultsPage = () => {
         label: name,
         tileId,
         areaHa: (props.area_m2 || 0) / 10_000,
-  confidencePct: normalizeConfidenceValue(props.avg_confidence ?? props.confidence ?? props.mean_confidence),
+        confidencePct: normalizeConfidenceValue(props.avg_confidence ?? props.confidence ?? props.mean_confidence),
         source: 'Merged' as const,
         isMerged: true,
         persistentId: props.persistent_id || blockId,
@@ -455,43 +460,43 @@ const ResultsPage = () => {
 
     const tileRows = Array.isArray(results?.tiles)
       ? results!.tiles.flatMap((tile: any, tileIdx: number) => {
-          const tileBlocks = Array.isArray(tile.mine_blocks) ? tile.mine_blocks : [];
-          if (!tileBlocks.length) {
-            return [];
-          }
+        const tileBlocks = Array.isArray(tile.mine_blocks) ? tile.mine_blocks : [];
+        if (!tileBlocks.length) {
+          return [];
+        }
 
-          const tileLabel = tile.tile_label
-            ?? tile.tile_id
-            ?? (typeof tile.tile_index === 'number' ? `tile_${tile.tile_index}` : `Tile ${tileIdx + 1}`);
-          const displayTileId = tile.tile_id ? String(tile.tile_id) : tileLabel;
+        const tileLabel = tile.tile_label
+          ?? tile.tile_id
+          ?? (typeof tile.tile_index === 'number' ? `tile_${tile.tile_index}` : `Tile ${tileIdx + 1}`);
+        const displayTileId = tile.tile_id ? String(tile.tile_id) : tileLabel;
 
-          return tileBlocks.map((block: any, blockIdx: number) => {
-            const props = block?.properties || {};
-            const blockId = props.block_id || `${displayTileId}-block-${blockIdx + 1}`;
-            const displayLabel = props.name || `${tileLabel} · Block ${blockIdx + 1}`;
-            const centroidArray = Array.isArray(props.label_position) && props.label_position.length >= 2
-              ? props.label_position.map((value: any) => (typeof value === 'number' ? value : Number(value)))
-              : undefined;
-            const boundsArray = Array.isArray(props.bbox) && props.bbox.length === 4
-              ? (props.bbox as any[]).map((value) => (typeof value === 'number' ? value : Number(value))) as [number, number, number, number]
-              : undefined;
+        return tileBlocks.map((block: any, blockIdx: number) => {
+          const props = block?.properties || {};
+          const blockId = props.block_id || `${displayTileId}-block-${blockIdx + 1}`;
+          const displayLabel = props.name || `${tileLabel} · Block ${blockIdx + 1}`;
+          const centroidArray = Array.isArray(props.label_position) && props.label_position.length >= 2
+            ? props.label_position.map((value: any) => (typeof value === 'number' ? value : Number(value)))
+            : undefined;
+          const boundsArray = Array.isArray(props.bbox) && props.bbox.length === 4
+            ? (props.bbox as any[]).map((value) => (typeof value === 'number' ? value : Number(value))) as [number, number, number, number]
+            : undefined;
 
-            return {
-              id: `tile-${blockId}`,
-              label: displayLabel,
-              tileId: displayTileId,
-              areaHa: (props.area_m2 || 0) / 10_000,
-              confidencePct: normalizeConfidenceValue(props.avg_confidence ?? props.confidence ?? props.mean_confidence),
-              source: 'Tile' as const,
-              isMerged: !!props.is_merged,
-              persistentId: props.persistent_id || blockId,
-              blockIndex: props.block_index,
-              centroidLat: centroidArray?.[1],
-              centroidLon: centroidArray?.[0],
-              bounds: boundsArray,
-            };
-          });
-        })
+          return {
+            id: `tile-${blockId}`,
+            label: displayLabel,
+            tileId: displayTileId,
+            areaHa: (props.area_m2 || 0) / 10_000,
+            confidencePct: normalizeConfidenceValue(props.avg_confidence ?? props.confidence ?? props.mean_confidence),
+            source: 'Tile' as const,
+            isMerged: !!props.is_merged,
+            persistentId: props.persistent_id || blockId,
+            blockIndex: props.block_index,
+            centroidLat: centroidArray?.[1],
+            centroidLon: centroidArray?.[0],
+            bounds: boundsArray,
+          };
+        });
+      })
       : [];
 
     const combined = [...mergedRows, ...tileRows];
@@ -521,15 +526,15 @@ const ResultsPage = () => {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: 'linear-gradient(to right, #1a1a2e, #16213e, #0f3460)' }}>
-        <CircularProgress sx={{ color: '#fcd34d' }} size={60} />
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: '#f8fafc' }}>
+        <CircularProgress sx={{ color: '#0f172a' }} size={60} />
       </Box>
     );
   }
 
   if (error || !results) {
     return (
-      <Box sx={{ p: 4, background: 'linear-gradient(to right, #1a1a2e, #16213e, #0f3460)', minHeight: '100vh' }}>
+      <Box sx={{ p: 4, backgroundColor: '#f8fafc', minHeight: '100vh' }}>
         <Alert severity="error">{error || 'No results found'}</Alert>
       </Box>
     );
@@ -543,7 +548,7 @@ const ResultsPage = () => {
   };
   const handleZoomToDetections = () => {
     if (!mapInstanceRef.current || !results?.tiles) return;
-    
+
     const tilesWithDetections = results.tiles.filter((t: any) => t.miningDetected || t.mining_detected);
     if (tilesWithDetections.length === 0) return;
 
@@ -564,7 +569,7 @@ const ResultsPage = () => {
       type: 'FeatureCollection',
       features: results?.tiles?.flatMap((t: any) => t.mine_blocks || []) || []
     };
-    
+
     const blob = new Blob([JSON.stringify(geojson, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -575,16 +580,17 @@ const ResultsPage = () => {
   };
 
   return (
-    <Box ref={containerRef} sx={{ display: 'flex', height: '100vh', background: 'linear-gradient(to right, #1a1a2e, #16213e, #0f3460)' }}>
+    <Box ref={containerRef} sx={{ display: 'flex', height: '100vh', backgroundColor: '#f8fafc' }}>
       {/* Left Panel - Statistics and Controls (draggable width) */}
-      <Box sx={{ 
+      <Box sx={{
         width: fullscreen ? 0 : `${splitPosition}%`,
         minWidth: fullscreen ? 0 : '400px',
-        overflowY: 'auto', 
-        p: fullscreen ? 0 : 3, 
+        overflowY: 'auto',
+        p: fullscreen ? 0 : 3,
         transition: fullscreen ? 'all 0.3s' : 'none',
-        background: 'linear-gradient(to bottom, rgba(26, 26, 46, 0.95), rgba(22, 33, 62, 0.95))',
-        borderRight: fullscreen ? 'none' : '1px solid rgba(251, 191, 36, 0.2)'
+        backgroundColor: fullscreen ? 'transparent' : '#ffffff',
+        borderRight: fullscreen ? 'none' : '1px solid #e2e8f0',
+        boxShadow: fullscreen ? 'none' : '0 18px 40px rgba(15, 23, 42, 0.08)',
       }}>
         {!fullscreen && (
           <Box>
@@ -593,22 +599,35 @@ const ResultsPage = () => {
               <Button
                 startIcon={<ArrowBack />}
                 onClick={() => router.push('/geoanalyst-dashboard')}
-                sx={{ mb: 2, color: '#fcd34d', textTransform: 'none' }}
+                variant="outlined"
+                sx={{
+                  mb: 2,
+                  color: '#0f172a',
+                  borderColor: '#cbd5f5',
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  borderRadius: '9999px',
+                  backgroundColor: '#f8fafc',
+                  '&:hover': {
+                    backgroundColor: '#f1f5f9',
+                    borderColor: '#94a3b8',
+                  },
+                }}
               >
                 Back to Dashboard
               </Button>
-              
-              <GoldenText variant="h5" fontWeight="bold" gutterBottom>
+
+              <PageTitle variant="h5" gutterBottom>
                 Analysis Results
-              </GoldenText>
-              <Typography sx={{ color: 'rgba(252, 211, 77, 0.7)', fontSize: '0.8rem', fontFamily: 'monospace', wordBreak: 'break-all' }}>
+              </PageTitle>
+              <Typography sx={{ color: '#475569', fontSize: '0.8rem', fontFamily: 'monospace', wordBreak: 'break-all' }}>
                 Analysis ID: {analysisId}
               </Typography>
             </Box>
 
             {/* Statistics Component */}
-            <ResultsStatistics 
-              results={{...results, analysis_id: analysisId}}
+            <ResultsStatistics
+              results={{ ...results, analysis_id: analysisId }}
               onOpenQuantitativeAnalysis={handleOpenQuantitativeAnalysis}
             />
 
@@ -616,17 +635,19 @@ const ResultsPage = () => {
               sx={{
                 mt: 3,
                 p: 2,
-                background: 'rgba(26, 26, 46, 0.6)',
-                border: '1px solid rgba(251, 191, 36, 0.15)',
+                backgroundColor: '#ffffff',
+                border: '1px solid #e2e8f0',
+                borderRadius: 2,
+                boxShadow: '0 12px 32px rgba(15, 23, 42, 0.06)',
               }}
               elevation={0}
             >
-              <GoldenText variant="subtitle2" fontWeight="bold">
+              <PanelHeading>
                 Operational Insights
-              </GoldenText>
+              </PanelHeading>
               <Box sx={{ mt: 1.25, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
                 {insightLines.map((line, index) => (
-                  <Typography key={index} sx={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.8rem' }}>
+                  <Typography key={index} sx={{ color: '#475569', fontSize: '0.85rem', lineHeight: 1.6 }}>
                     {line}
                   </Typography>
                 ))}
@@ -642,10 +663,11 @@ const ResultsPage = () => {
                 startIcon={<ZoomIn />}
                 onClick={handleZoomToDetections}
                 sx={{
-                  bgcolor: '#ef4444',
-                  '&:hover': { bgcolor: '#dc2626' },
+                  bgcolor: '#0f172a',
+                  '&:hover': { bgcolor: '#1e293b' },
                   textTransform: 'none',
-                  fontWeight: 'bold'
+                  fontWeight: 600,
+                  borderRadius: 2,
                 }}
               >
                 Zoom to All Detections
@@ -656,14 +678,15 @@ const ResultsPage = () => {
                 startIcon={<Download />}
                 onClick={handleDownloadReport}
                 sx={{
-                  color: '#fcd34d',
-                  borderColor: 'rgba(252, 211, 77, 0.5)',
+                  color: '#0f172a',
+                  borderColor: '#cbd5f5',
                   '&:hover': {
-                    borderColor: '#fbbf24',
-                    backgroundColor: 'rgba(251, 191, 36, 0.1)'
+                    borderColor: '#94a3b8',
+                    backgroundColor: '#f1f5f9'
                   },
                   textTransform: 'none',
-                  fontWeight: 'bold'
+                  fontWeight: 600,
+                  borderRadius: 2,
                 }}
               >
                 Download GeoJSON Report
@@ -674,25 +697,27 @@ const ResultsPage = () => {
               sx={{
                 mt: 3,
                 p: 2,
-                background: 'rgba(26, 26, 46, 0.6)',
-                border: '1px solid rgba(251, 191, 36, 0.15)',
+                backgroundColor: '#ffffff',
+                border: '1px solid #e2e8f0',
+                borderRadius: 2,
+                boxShadow: '0 12px 32px rgba(15, 23, 42, 0.06)',
               }}
               elevation={0}
             >
-              <GoldenText variant="subtitle2" fontWeight="bold">
+              <PanelHeading>
                 Compliance Overlay (Next Phase)
-              </GoldenText>
-              <Typography sx={{ color: 'rgba(252, 211, 77, 0.6)', fontSize: '0.75rem', mt: 1 }}>
+              </PanelHeading>
+              <Typography sx={{ color: '#475569', fontSize: '0.85rem', mt: 1 }}>
                 Upload authorised mining lease polygons to validate each detected block and flag variances automatically.
               </Typography>
               <Box sx={{ mt: 1.5, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
-                <Typography sx={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.75rem' }}>
+                <Typography sx={{ color: '#475569', fontSize: '0.8rem' }}>
                   - Dedicated lane for <strong>Government Permit</strong> GeoJSON / SHP imports
                 </Typography>
-                <Typography sx={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.75rem' }}>
+                <Typography sx={{ color: '#475569', fontSize: '0.8rem' }}>
                   - Side-by-side comparison dashboard with legality badges per block
                 </Typography>
-                <Typography sx={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.75rem' }}>
+                <Typography sx={{ color: '#475569', fontSize: '0.8rem' }}>
                   - Exportable compliance summary for audit submissions
                 </Typography>
               </Box>
@@ -708,9 +733,9 @@ const ResultsPage = () => {
           sx={{
             width: '4px',
             cursor: 'col-resize',
-            backgroundColor: isDragging ? 'rgba(251, 191, 36, 0.6)' : 'rgba(251, 191, 36, 0.3)',
+            backgroundColor: isDragging ? '#cbd5f5' : '#e2e8f0',
             '&:hover': {
-              backgroundColor: 'rgba(251, 191, 36, 0.6)',
+              backgroundColor: '#cbd5f5',
             },
             transition: 'background-color 0.2s',
             position: 'relative',
@@ -720,12 +745,12 @@ const ResultsPage = () => {
             justifyContent: 'center'
           }}
         >
-          <DragIndicator 
-            sx={{ 
-              color: 'rgba(251, 191, 36, 0.8)',
+          <DragIndicator
+            sx={{
+              color: '#94a3b8',
               fontSize: 16,
               transform: 'rotate(90deg)'
-            }} 
+            }}
           />
         </Box>
       )}
@@ -734,7 +759,7 @@ const ResultsPage = () => {
       <Box sx={{ flex: 1, position: 'relative' }}>
         {/* Map Container */}
         <Box ref={mapRef} sx={{ width: '100%', height: '100%' }} />
-        
+
         {/* Tile Overlay Manager */}
         {mapInstanceRef.current && results?.tiles && (
           <TileOverlayManager
@@ -758,14 +783,15 @@ const ResultsPage = () => {
             left: 16,
             zIndex: 1000,
             p: 1,
-            background: 'rgba(26, 26, 46, 0.95)',
-            border: '1px solid rgba(251, 191, 36, 0.2)',
+            backgroundColor: '#ffffff',
+            border: '1px solid #e2e8f0',
+            boxShadow: '0 12px 32px rgba(15, 23, 42, 0.1)',
           }}
         >
           <Tooltip title={fullscreen ? 'Exit Fullscreen' : 'Fullscreen Map'}>
             <IconButton
               onClick={() => setFullscreen(!fullscreen)}
-              sx={{ color: '#fcd34d' }}
+              sx={{ color: '#0f172a' }}
             >
               {fullscreen ? <FullscreenExit /> : <Fullscreen />}
             </IconButton>
@@ -781,27 +807,27 @@ const ResultsPage = () => {
             left: 16,
             zIndex: 1000,
             p: 2,
-            background: 'rgba(26, 26, 46, 0.95)',
-            border: '1px solid rgba(251, 191, 36, 0.2)',
-            backdropFilter: 'blur(10px)',
+            backgroundColor: '#ffffff',
+            border: '1px solid #e2e8f0',
+            boxShadow: '0 12px 32px rgba(15, 23, 42, 0.1)',
             minWidth: 200
           }}
         >
-          <Typography sx={{ color: '#fcd34d', fontWeight: 'bold', fontSize: '0.875rem', mb: 1 }}>
+          <Typography sx={{ color: '#0f172a', fontWeight: 700, fontSize: '0.875rem', mb: 1 }}>
             Map Legend
           </Typography>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Box sx={{ width: 16, height: 16, bgcolor: '#3b82f6', border: '1px solid #60a5fa' }} />
-              <Typography sx={{ color: '#fff', fontSize: '0.75rem' }}>Satellite Tiles</Typography>
+              <Typography sx={{ color: '#0f172a', fontSize: '0.75rem' }}>Satellite Tiles</Typography>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Box sx={{ width: 16, height: 16, bgcolor: '#a855f7', border: '1px solid #c084fc' }} />
-              <Typography sx={{ color: '#fff', fontSize: '0.75rem' }}>Probability Heatmap</Typography>
+              <Typography sx={{ color: '#0f172a', fontSize: '0.75rem' }}>Probability Heatmap</Typography>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Box sx={{ width: 16, height: 16, bgcolor: '#ef4444', border: '1px solid #fca5a5' }} />
-              <Typography sx={{ color: '#fff', fontSize: '0.75rem' }}>Mine Blocks</Typography>
+              <Typography sx={{ color: '#0f172a', fontSize: '0.75rem' }}>Mine Blocks</Typography>
             </Box>
           </Box>
         </Paper>

@@ -15,19 +15,19 @@ const GeoAnalystNavbar: React.FC = () => {
   };
 
   return (
-    <nav className="bg-gradient-to-r from-[#1a1a2e] via-[#16213e] to-[#0f3460] shadow-2xl border-b border-amber-500/20 h-16">
+    <nav className="bg-white shadow-md border-b border-gray-200 h-16">
       <div className="max-w-full px-6 h-full">
         <div className="flex justify-between items-center h-full">
           {/* Logo/Title */}
           <div className="flex items-center space-x-3">
-            <div className="bg-white rounded-full p-2 shadow-lg hover:scale-110 transition-transform duration-300">
-              <Globe className="h-8 w-8 text-[#1a1a2e]" />
+            <div className="bg-gray-100 rounded-full p-2 shadow-sm hover:scale-110 transition-transform duration-300">
+              <Globe className="h-8 w-8 text-slate-900" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-amber-400 via-yellow-500 to-amber-500 bg-clip-text text-transparent tracking-tight drop-shadow-[0_2px_4px_rgba(251,191,36,0.3)]">
+              <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
                 KhananNetra
               </h1>
-              <span className="text-xs text-amber-200/80 font-medium uppercase tracking-wider">
+              <span className="text-xs text-gray-500 font-medium uppercase tracking-wider">
                 Geospatial-Mines Intelligence Platform
               </span>
             </div>
@@ -37,37 +37,37 @@ const GeoAnalystNavbar: React.FC = () => {
           <div className="hidden md:flex items-center space-x-6">
             <a
               href="#dashboard"
-              className="text-amber-100 hover:text-amber-300 transition-colors duration-200 font-semibold text-sm uppercase tracking-wide flex items-center space-x-2 group"
+              className="text-gray-700 hover:text-gray-900 transition-colors duration-200 font-semibold text-sm uppercase tracking-wide flex items-center space-x-2"
             >
-              <Globe size={16} className="group-hover:text-amber-400 transition-colors" />
+              <Globe size={16} />
               <span>Dashboard</span>
             </a>
             <a
               href="#about"
-              className="text-amber-100 hover:text-amber-300 transition-colors duration-200 font-semibold text-sm uppercase tracking-wide flex items-center space-x-2 group"
+              className="text-gray-700 hover:text-gray-900 transition-colors duration-200 font-semibold text-sm uppercase tracking-wide flex items-center space-x-2"
             >
-              <FileText size={16} className="group-hover:text-amber-400 transition-colors" />
+              <FileText size={16} />
               <span>About</span>
             </a>
             <a
               href="#contact"
-              className="text-amber-100 hover:text-amber-300 transition-colors duration-200 font-semibold text-sm uppercase tracking-wide flex items-center space-x-2 group"
+              className="text-gray-700 hover:text-gray-900 transition-colors duration-200 font-semibold text-sm uppercase tracking-wide flex items-center space-x-2"
             >
-              <Mail size={16} className="group-hover:text-amber-400 transition-colors" />
+              <Mail size={16} />
               <span>Contact</span>
             </a>
 
             {/* User Info & Logout */}
             {user && (
-              <div className="flex items-center space-x-4 ml-4 pl-4 border-l border-amber-500/30">
-                <span className="text-amber-100 text-sm">
+              <div className="flex items-center space-x-4 ml-4 pl-4 border-l border-gray-200">
+                <span className="text-gray-700 text-sm">
                   {user.name}
                 </span>
                 <button
                   onClick={handleLogout}
-                  className="text-amber-100 hover:text-amber-300 transition-colors duration-200 font-semibold text-sm uppercase tracking-wide flex items-center space-x-2 group"
+                  className="text-gray-700 hover:text-gray-900 transition-colors duration-200 font-semibold text-sm uppercase tracking-wide flex items-center space-x-2"
                 >
-                  <LogOut size={16} className="group-hover:text-amber-400 transition-colors" />
+                  <LogOut size={16} />
                   <span>Logout</span>
                 </button>
               </div>
@@ -78,7 +78,7 @@ const GeoAnalystNavbar: React.FC = () => {
           <div className="md:hidden">
             <button
               type="button"
-              className="text-amber-100 hover:text-amber-300 transition-colors duration-200 p-2"
+              className="text-gray-600 hover:text-gray-900 transition-colors duration-200 p-2"
             >
               <Menu size={24} strokeWidth={2.5} />
             </button>

@@ -54,9 +54,9 @@ L.Icon.Default.mergeOptions({
 
 // Animations
 const pulse = keyframes`
-  0% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.7); }
-  70% { box-shadow: 0 0 0 10px rgba(251, 191, 36, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0); }
+  0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); }
+  70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
 `;
 
 const shimmer = keyframes`
@@ -74,45 +74,45 @@ const slideInUp = keyframes`
   to { transform: translateY(0); opacity: 1; }
 `;
 
-// Styled components matching dark royal blue theme
+// Styled components for a light dashboard theme
 const ProgressContainer = styled(Paper)(({ theme }) => ({
-  background: 'linear-gradient(to bottom, #1a1a2e, #16213e)',
-  border: '1px solid rgba(251, 191, 36, 0.2)',
+  background: '#ffffff',
+  border: '1px solid rgba(15, 23, 42, 0.08)',
   padding: theme.spacing(4),
   borderRadius: theme.spacing(2),
-  boxShadow: '0 8px 32px rgba(251, 191, 36, 0.2)',
+  boxShadow: '0 12px 30px rgba(15, 23, 42, 0.08)',
   animation: `${slideInUp} 0.6s ease-out`
 }));
 
 const StyledLinearProgress = styled(LinearProgress)({
   height: 12,
   borderRadius: 6,
-  backgroundColor: 'rgba(251, 191, 36, 0.1)',
+  backgroundColor: 'rgba(16, 185, 129, 0.12)',
   overflow: 'hidden',
   '& .MuiLinearProgress-bar': {
-    background: 'linear-gradient(45deg, #fbbf24, #fcd34d, #f59e0b)',
+    background: 'linear-gradient(45deg, #10b981, #22c55e, #10b981)',
     backgroundSize: '200% 100%',
     animation: `${shimmer} 2s infinite linear`,
     borderRadius: 6,
-    boxShadow: '0 2px 8px rgba(251, 191, 36, 0.4)'
+    boxShadow: '0 2px 8px rgba(16, 185, 129, 0.4)'
   }
 });
 
 const GoldenText = styled(Typography)({
-  background: 'linear-gradient(to right, #fbbf24, #fcd34d, #fbbf24)',
+  background: 'linear-gradient(to right, #047857, #22c55e, #047857)',
   backgroundClip: 'text',
   WebkitBackgroundClip: 'text',
   WebkitTextFillColor: 'transparent',
-  filter: 'drop-shadow(0 2px 4px rgba(251, 191, 36, 0.3))'
+  filter: 'drop-shadow(0 2px 4px rgba(16, 185, 129, 0.3))'
 });
 
 const AnimatedCard = styled(Card)(({ theme }) => ({
-  background: 'rgba(251, 191, 36, 0.1)',
-  border: '1px solid rgba(251, 191, 36, 0.2)',
+  background: 'rgba(16, 185, 129, 0.08)',
+  border: '1px solid rgba(16, 185, 129, 0.2)',
   transition: 'all 0.3s ease',
   '&:hover': {
     transform: 'translateY(-2px)',
-    boxShadow: '0 8px 16px rgba(251, 191, 36, 0.3)'
+    boxShadow: '0 8px 16px rgba(16, 185, 129, 0.25)'
   }
 }));
 
@@ -193,7 +193,7 @@ export const AnalysisProgress: React.FC<AnalysisProgressProps> = ({
   const [elapsedTime, setElapsedTime] = useState(0);
   const [abortDialogOpen, setAbortDialogOpen] = useState(false);
   const [aborting, setAborting] = useState(false);
-  
+
   // Map state
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -248,16 +248,16 @@ export const AnalysisProgress: React.FC<AnalysisProgressProps> = ({
 
     const map = mapInstanceRef.current;
     const allBounds = status.tiles.flatMap(t => t.bounds || []);
-    
+
     if (allBounds.length > 0) {
       const lats = allBounds.map(b => b[1]);
       const lngs = allBounds.map(b => b[0]);
-      
+
       const bounds = L.latLngBounds([
         [Math.min(...lats), Math.min(...lngs)],
         [Math.max(...lats), Math.max(...lngs)]
       ]);
-      
+
       // Fit bounds with padding
       map.fitBounds(bounds, { padding: [50, 50] });
     }
@@ -270,10 +270,10 @@ export const AnalysisProgress: React.FC<AnalysisProgressProps> = ({
     const pollStatus = async () => {
       try {
         const response = await apiClient.get(`/python/analysis/${analysisId}`);
-        
+
         const data: AnalysisStatus = response.data;
         setStatus(data);
-        
+
         // Update context
         updateAnalysisProgress(data.progress, data.message);
 
@@ -291,14 +291,14 @@ export const AnalysisProgress: React.FC<AnalysisProgressProps> = ({
         }
       } catch (error: any) {
         console.error('Error polling status:', error);
-        
+
         // 401 means token expired - apiClient will automatically try to refresh
         // Don't show error message here, let the refresh happen silently
         if (error.status === 401) {
           console.log('🔄 Token expired, will retry...');
           return; // Let the next poll attempt the request
         }
-        
+
         console.error('Error details:', error.response?.data || error.message);
         clearInterval(interval);
         clearInterval(timeInterval);
@@ -365,13 +365,13 @@ export const AnalysisProgress: React.FC<AnalysisProgressProps> = ({
   const handleAbortAnalysis = async () => {
     try {
       setAborting(true);
-      
+
       // Call the stop API endpoint
       await stopAnalysis(analysisId);
-      
+
       // Update context to mark as cancelled
       updateAnalysisStatus('cancelled');
-      
+
       // Clear analysis after a brief delay
       setTimeout(() => {
         clearAnalysis();
@@ -391,11 +391,11 @@ export const AnalysisProgress: React.FC<AnalysisProgressProps> = ({
   const safeActiveStep = Math.max(currentStepIndex, 0);
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', background: 'linear-gradient(to right, #1a1a2e, #16213e, #0f3460)', overflow: 'hidden' }}>
+    <Box sx={{ display: 'flex', minHeight: '100vh', background: 'linear-gradient(to right, #f8fafc, #eef2f7)', overflow: 'hidden' }}>
       {/* Left Panel - Progress Information */}
-      <Box sx={{ 
-        width: { xs: '100%', sm: 450, md: 500 }, 
-        overflowY: 'auto', 
+      <Box sx={{
+        width: { xs: '100%', sm: 450, md: 500 },
+        overflowY: 'auto',
         overflowX: 'hidden',
         p: 2,
         flexShrink: 0,
@@ -404,28 +404,28 @@ export const AnalysisProgress: React.FC<AnalysisProgressProps> = ({
           width: '6px',
         },
         '&::-webkit-scrollbar-track': {
-          background: 'rgba(251, 191, 36, 0.05)',
+          background: 'rgba(148, 163, 184, 0.12)',
         },
         '&::-webkit-scrollbar-thumb': {
-          background: 'rgba(251, 191, 36, 0.3)',
+          background: 'rgba(16, 185, 129, 0.35)',
           borderRadius: '3px',
           '&:hover': {
-            background: 'rgba(251, 191, 36, 0.5)',
+            background: 'rgba(16, 185, 129, 0.5)',
           }
         }
       }}>
-        <ProgressContainer elevation={0} sx={{ background: 'transparent', boxShadow: 'none', p: 0 }}>
+        <ProgressContainer elevation={0} sx={{ boxShadow: 'none', p: 0 }}>
           {/* Header with Abort Button */}
           <Box sx={{ mb: 4 }}>
             <Box sx={{ textAlign: 'center', mb: 2 }}>
               <GoldenText variant="h5" fontWeight="bold" gutterBottom>
                 Analysis in Progress
               </GoldenText>
-              <Typography sx={{ color: 'rgba(252, 211, 77, 0.7)', fontSize: '0.875rem' }}>
+              <Typography sx={{ color: '#6b7280', fontSize: '0.875rem' }}>
                 Analysis ID: {analysisId.slice(0, 8)}...
               </Typography>
             </Box>
-            
+
             {/* Abort Button */}
             <Button
               fullWidth
@@ -449,241 +449,238 @@ export const AnalysisProgress: React.FC<AnalysisProgressProps> = ({
             </Button>
           </Box>
 
-        {/* Progress Bar */}
-        <Fade in={true} timeout={800}>
-          <Box sx={{ mb: 4 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-              <Typography sx={{ color: '#fcd34d', fontWeight: 600 }}>
-                Overall Progress
-              </Typography>
-              <Zoom in={true} style={{ transitionDelay: '300ms' }}>
-                <Typography sx={{ 
-                  color: '#fbbf24', 
-                  fontWeight: 'bold',
-                  fontSize: '1.2rem',
-                  textShadow: '0 0 10px rgba(251, 191, 36, 0.5)'
-                }}>
-                  {status.progress}%
+          {/* Progress Bar */}
+          <Fade in={true} timeout={800}>
+            <Box sx={{ mb: 4 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                <Typography sx={{ color: '#1f2937', fontWeight: 600 }}>
+                  Overall Progress
                 </Typography>
-              </Zoom>
+                <Zoom in={true} style={{ transitionDelay: '300ms' }}>
+                  <Typography sx={{
+                    color: '#047857',
+                    fontWeight: 'bold',
+                    fontSize: '1.2rem'
+                  }}>
+                    {status.progress}%
+                  </Typography>
+                </Zoom>
+              </Box>
+              <StyledLinearProgress variant="determinate" value={status.progress} />
+
+              {/* Progress indicator dots */}
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
+                {[0, 25, 50, 75, 100].map((milestone) => (
+                  <Box
+                    key={milestone}
+                    sx={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: '50%',
+                      backgroundColor: status.progress >= milestone ? '#10b981' : 'rgba(16, 185, 129, 0.2)',
+                      transition: 'all 0.5s ease',
+                      boxShadow: status.progress >= milestone ? '0 0 8px rgba(16, 185, 129, 0.35)' : 'none'
+                    }}
+                  />
+                ))}
+              </Box>
             </Box>
-            <StyledLinearProgress variant="determinate" value={status.progress} />
-            
-            {/* Progress indicator dots */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
-              {[0, 25, 50, 75, 100].map((milestone) => (
-                <Box
-                  key={milestone}
-                  sx={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: '50%',
-                    backgroundColor: status.progress >= milestone ? '#fbbf24' : 'rgba(251, 191, 36, 0.3)',
-                    transition: 'all 0.5s ease',
-                    boxShadow: status.progress >= milestone ? '0 0 8px rgba(251, 191, 36, 0.8)' : 'none'
-                  }}
-                />
-              ))}
-            </Box>
-          </Box>
-        </Fade>
-
-        {/* Current Status Message */}
-        <Slide direction="up" in={true} timeout={600}>
-          <Alert 
-            severity="info"
-            icon={
-              <PulsingIcon>
-                <Satellite sx={{ color: '#fcd34d', animation: `${rotate} 3s linear infinite` }} />
-              </PulsingIcon>
-            }
-            sx={{
-              mb: 4,
-              backgroundColor: 'rgba(252, 211, 77, 0.1)',
-              border: '1px solid rgba(252, 211, 77, 0.3)',
-              color: '#ffffff',
-              borderRadius: 3,
-              '& .MuiAlert-icon': {
-                color: '#fcd34d'
-              },
-              transition: 'all 0.3s ease'
-            }}
-          >
-            <Typography sx={{ fontWeight: 500 }}>
-              {status.message}
-            </Typography>
-          </Alert>
-        </Slide>
-
-        {/* Stepper */}
-        <Stepper 
-          activeStep={safeActiveStep} 
-          orientation="vertical"
-          sx={{ 
-            mb: 3,
-            '& .MuiStep-root': {
-              py: 1,
-            }
-          }}
-        >
-          {ANALYSIS_STEPS.map((step, index) => {
-            const stepStatus = getStepStatus(index, currentStepIndex);
-            return (
-              <Step key={step.id} sx={{ py: 0 }}>
-                <StepLabel
-                  StepIconComponent={() => (
-                    <Box
-                      sx={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: '50%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        backgroundColor:
-                          stepStatus === 'completed'
-                            ? '#fbbf24'
-                            : stepStatus === 'active'
-                            ? 'rgba(252, 211, 77, 0.35)'
-                            : 'rgba(148, 163, 184, 0.14)',
-                        border: `2px solid ${
-                          stepStatus === 'active' ? 'rgba(252, 211, 77, 0.9)' : 'rgba(252, 211, 77, 0.35)'
-                        }`,
-                        color: stepStatus === 'completed' ? '#0f172a' : '#fcd34d',
-                        fontSize: '0.75rem'
-                      }}
-                    >
-                      {stepStatus === 'completed' ? (
-                        <CheckCircle sx={{ fontSize: '1.2rem' }} />
-                      ) : stepStatus === 'active' ? (
-                        <CircularProgress
-                          size={16}
-                          sx={{
-                            color: '#fcd34d',
-                            '& .MuiCircularProgress-circle': {
-                              strokeLinecap: 'round'
-                            }
-                          }}
-                        />
-                      ) : (
-                        <RadioButtonUnchecked sx={{ fontSize: '1.2rem' }} />
-                      )}
-                    </Box>
-                  )}
-                  sx={{
-                    '& .MuiStepLabel-label': {
-                      color: stepStatus === 'completed' ? '#fbbf24' : 'rgba(226, 232, 240, 0.9)',
-                      fontWeight: stepStatus === 'active' ? 600 : 400,
-                      fontSize: '0.875rem'
-                    },
-                    '& .MuiStepLabel-label.Mui-active': {
-                      color: '#fcd34d',
-                      textShadow: '0 0 8px rgba(252, 211, 77, 0.35)'
-                    },
-                    '& .MuiStepLabel-label.Mui-completed': {
-                      color: '#fbbf24'
-                    }
-                  }}
-                >
-                  {step.label}
-                </StepLabel>
-              </Step>
-            );
-          })}
-        </Stepper>
-        
-
-        {/* Statistics */}
-        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 2, mb: 4 }}>
-          <Fade in={true} timeout={800} style={{ transitionDelay: '200ms' }}>
-            <AnimatedCard>
-              <CardContent sx={{ textAlign: 'center', py: 2 }}>
-                <Speed sx={{ color: '#fcd34d', fontSize: '1.5rem', mb: 1 }} />
-                <Typography sx={{ color: 'rgba(252, 211, 77, 0.7)', fontSize: '0.75rem' }}>
-                  Elapsed Time
-                </Typography>
-                <Typography sx={{ 
-                  color: '#fcd34d', 
-                  fontSize: '1.4rem', 
-                  fontWeight: 'bold',
-                  fontFamily: 'monospace'
-                }}>
-                  {formatTime(elapsedTime)}
-                </Typography>
-              </CardContent>
-            </AnimatedCard>
           </Fade>
 
-          {status.area_km2 && (
-            <Fade in={true} timeout={800} style={{ transitionDelay: '400ms' }}>
+          {/* Current Status Message */}
+          <Slide direction="up" in={true} timeout={600}>
+            <Alert
+              severity="info"
+              icon={
+                <PulsingIcon>
+                  <Satellite sx={{ color: '#059669', animation: `${rotate} 3s linear infinite` }} />
+                </PulsingIcon>
+              }
+              sx={{
+                mb: 4,
+                backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                border: '1px solid rgba(16, 185, 129, 0.3)',
+                color: '#0f172a',
+                borderRadius: 3,
+                '& .MuiAlert-icon': {
+                  color: '#059669'
+                },
+                transition: 'all 0.3s ease'
+              }}
+            >
+              <Typography sx={{ fontWeight: 500, color: '#134e4a' }}>
+                {status.message}
+              </Typography>
+            </Alert>
+          </Slide>
+
+          {/* Stepper */}
+          <Stepper
+            activeStep={safeActiveStep}
+            orientation="vertical"
+            sx={{
+              mb: 3,
+              '& .MuiStep-root': {
+                py: 1,
+              }
+            }}
+          >
+            {ANALYSIS_STEPS.map((step, index) => {
+              const stepStatus = getStepStatus(index, currentStepIndex);
+              return (
+                <Step key={step.id} sx={{ py: 0 }}>
+                  <StepLabel
+                    StepIconComponent={() => (
+                      <Box
+                        sx={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: '50%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          backgroundColor:
+                            stepStatus === 'completed'
+                              ? '#10b981'
+                              : stepStatus === 'active'
+                                ? 'rgba(16, 185, 129, 0.18)'
+                                : 'rgba(148, 163, 184, 0.14)',
+                          border: `2px solid ${stepStatus === 'active' ? 'rgba(16, 185, 129, 0.6)' : 'rgba(148, 163, 184, 0.3)'
+                            }`,
+                          color: stepStatus === 'completed' ? '#ffffff' : '#047857',
+                          fontSize: '0.75rem'
+                        }}
+                      >
+                        {stepStatus === 'completed' ? (
+                          <CheckCircle sx={{ fontSize: '1.2rem' }} />
+                        ) : stepStatus === 'active' ? (
+                          <CircularProgress
+                            size={16}
+                            sx={{
+                              color: '#059669',
+                              '& .MuiCircularProgress-circle': {
+                                strokeLinecap: 'round'
+                              }
+                            }}
+                          />
+                        ) : (
+                          <RadioButtonUnchecked sx={{ fontSize: '1.2rem' }} />
+                        )}
+                      </Box>
+                    )}
+                    sx={{
+                      '& .MuiStepLabel-label': {
+                        color: stepStatus === 'completed' ? '#047857' : '#4b5563',
+                        fontWeight: stepStatus === 'active' ? 600 : 400,
+                        fontSize: '0.875rem'
+                      },
+                      '& .MuiStepLabel-label.Mui-active': {
+                        color: '#047857'
+                      },
+                      '& .MuiStepLabel-label.Mui-completed': {
+                        color: '#047857'
+                      }
+                    }}
+                  >
+                    {step.label}
+                  </StepLabel>
+                </Step>
+              );
+            })}
+          </Stepper>
+
+
+          {/* Statistics */}
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 2, mb: 4 }}>
+            <Fade in={true} timeout={800} style={{ transitionDelay: '200ms' }}>
               <AnimatedCard>
                 <CardContent sx={{ textAlign: 'center', py: 2 }}>
-                  <Verified sx={{ color: '#fcd34d', fontSize: '1.5rem', mb: 1 }} />
-                  <Typography sx={{ color: 'rgba(252, 211, 77, 0.7)', fontSize: '0.75rem' }}>
-                    AOI Area
+                  <Speed sx={{ color: '#047857', fontSize: '1.5rem', mb: 1 }} />
+                  <Typography sx={{ color: '#0f172a', fontSize: '0.75rem' }}>
+                    Elapsed Time
                   </Typography>
-                  <Typography sx={{ color: '#fcd34d', fontSize: '1.4rem', fontWeight: 'bold' }}>
-                    {status.area_km2} km²
+                  <Typography sx={{
+                    color: '#047857',
+                    fontSize: '1.4rem',
+                    fontWeight: 'bold',
+                    fontFamily: 'monospace'
+                  }}>
+                    {formatTime(elapsedTime)}
                   </Typography>
                 </CardContent>
               </AnimatedCard>
             </Fade>
-          )}
 
-          {status.total_tiles && (
-            <Fade in={true} timeout={800} style={{ transitionDelay: '600ms' }}>
-              <AnimatedCard>
-                <CardContent sx={{ textAlign: 'center', py: 2 }}>
-                  <CloudDownload sx={{ color: '#fcd34d', fontSize: '1.5rem', mb: 1 }} />
-                  <Typography sx={{ color: 'rgba(252, 211, 77, 0.7)', fontSize: '0.75rem' }}>
-                    Total Tiles
-                  </Typography>
-                  <Typography sx={{ color: '#fcd34d', fontSize: '1.4rem', fontWeight: 'bold' }}>
-                    {status.total_tiles}
-                  </Typography>
-                </CardContent>
-              </AnimatedCard>
-            </Fade>
-          )}
+            {status.area_km2 && (
+              <Fade in={true} timeout={800} style={{ transitionDelay: '400ms' }}>
+                <AnimatedCard>
+                  <CardContent sx={{ textAlign: 'center', py: 2 }}>
+                    <Verified sx={{ color: '#047857', fontSize: '1.5rem', mb: 1 }} />
+                    <Typography sx={{ color: '#0f172a', fontSize: '0.75rem' }}>
+                      AOI Area
+                    </Typography>
+                    <Typography sx={{ color: '#047857', fontSize: '1.4rem', fontWeight: 'bold' }}>
+                      {status.area_km2} km²
+                    </Typography>
+                  </CardContent>
+                </AnimatedCard>
+              </Fade>
+            )}
 
-          {status.tiles_fetched !== undefined && (
-            <Fade in={true} timeout={800} style={{ transitionDelay: '800ms' }}>
-              <AnimatedCard>
-                <CardContent sx={{ textAlign: 'center', py: 2 }}>
-                  <Timeline sx={{ color: '#fcd34d', fontSize: '1.5rem', mb: 1 }} />
-                  <Typography sx={{ color: 'rgba(252, 211, 77, 0.7)', fontSize: '0.75rem' }}>
-                    Tiles Progress
-                  </Typography>
-                  <Typography sx={{ color: '#fcd34d', fontSize: '1.4rem', fontWeight: 'bold' }}>
-                    {status.tiles_fetched} / {status.total_tiles}
-                  </Typography>
-                  <Box sx={{ width: '100%', mt: 1 }}>
-                    <LinearProgress 
-                      variant="determinate" 
-                      value={status.total_tiles ? (status.tiles_fetched / status.total_tiles) * 100 : 0}
-                      sx={{
-                        height: 4,
-                        borderRadius: 2,
-                        backgroundColor: 'rgba(251, 191, 36, 0.2)',
-                        '& .MuiLinearProgress-bar': {
-                          backgroundColor: '#fbbf24',
-                          borderRadius: 2
-                        }
-                      }}
-                    />
-                  </Box>
-                </CardContent>
-              </AnimatedCard>
-            </Fade>
-          )}
-        </Box>
+            {status.total_tiles && (
+              <Fade in={true} timeout={800} style={{ transitionDelay: '600ms' }}>
+                <AnimatedCard>
+                  <CardContent sx={{ textAlign: 'center', py: 2 }}>
+                    <CloudDownload sx={{ color: '#047857', fontSize: '1.5rem', mb: 1 }} />
+                    <Typography sx={{ color: '#0f172a', fontSize: '0.75rem' }}>
+                      Total Tiles
+                    </Typography>
+                    <Typography sx={{ color: '#047857', fontSize: '1.4rem', fontWeight: 'bold' }}>
+                      {status.total_tiles}
+                    </Typography>
+                  </CardContent>
+                </AnimatedCard>
+              </Fade>
+            )}
 
-        {/* Info */}
-        <Box sx={{ mt: 4, textAlign: 'center' }}>
-          <Typography sx={{ color: 'rgba(252, 211, 77, 0.6)', fontSize: '0.875rem' }}>
-            Please do not close this window. The analysis may take several minutes depending on the AOI size.
-          </Typography>
-        </Box>
+            {status.tiles_fetched !== undefined && (
+              <Fade in={true} timeout={800} style={{ transitionDelay: '800ms' }}>
+                <AnimatedCard>
+                  <CardContent sx={{ textAlign: 'center', py: 2 }}>
+                    <Timeline sx={{ color: '#047857', fontSize: '1.5rem', mb: 1 }} />
+                    <Typography sx={{ color: '#0f172a', fontSize: '0.75rem' }}>
+                      Tiles Progress
+                    </Typography>
+                    <Typography sx={{ color: '#047857', fontSize: '1.4rem', fontWeight: 'bold' }}>
+                      {status.tiles_fetched} / {status.total_tiles}
+                    </Typography>
+                    <Box sx={{ width: '100%', mt: 1 }}>
+                      <LinearProgress
+                        variant="determinate"
+                        value={status.total_tiles ? (status.tiles_fetched / status.total_tiles) * 100 : 0}
+                        sx={{
+                          height: 4,
+                          borderRadius: 2,
+                          backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                          '& .MuiLinearProgress-bar': {
+                            backgroundColor: '#10b981',
+                            borderRadius: 2
+                          }
+                        }}
+                      />
+                    </Box>
+                  </CardContent>
+                </AnimatedCard>
+              </Fade>
+            )}
+          </Box>
+
+          {/* Info */}
+          <Box sx={{ mt: 4, textAlign: 'center' }}>
+            <Typography sx={{ color: '#6b7280', fontSize: '0.875rem' }}>
+              Please do not close this window. The analysis may take several minutes depending on the AOI size.
+            </Typography>
+          </Box>
         </ProgressContainer>
       </Box>
 
@@ -691,7 +688,7 @@ export const AnalysisProgress: React.FC<AnalysisProgressProps> = ({
       <Box sx={{ flex: 1, position: 'relative' }}>
         {/* Map Container */}
         <Box ref={mapRef} sx={{ width: '100%', height: '100vh' }} />
-        
+
         {/* Tile Overlay Manager */}
         {mapInstanceRef.current && (
           <TileOverlayManager
@@ -715,15 +712,15 @@ export const AnalysisProgress: React.FC<AnalysisProgressProps> = ({
               left: 16,
               zIndex: 1000,
               p: 2,
-              background: 'rgba(26, 26, 46, 0.95)',
-              border: '1px solid rgba(251, 191, 36, 0.2)',
+              background: 'rgba(255, 255, 255, 0.95)',
+              border: '1px solid rgba(15, 23, 42, 0.12)',
               backdropFilter: 'blur(10px)'
             }}
           >
-            <Typography sx={{ color: '#fcd34d', fontWeight: 'bold', fontSize: '0.875rem' }}>
+            <Typography sx={{ color: '#1f2937', fontWeight: 'bold', fontSize: '0.875rem' }}>
               Real-Time Tile Display
             </Typography>
-            <Typography sx={{ color: 'rgba(252, 211, 77, 0.7)', fontSize: '0.75rem' }}>
+            <Typography sx={{ color: '#4b5563', fontSize: '0.75rem' }}>
               {status.tiles.length} tiles loaded
             </Typography>
             {status.tiles.filter(t => t.miningDetected || t.mining_detected).length > 0 && (
@@ -733,7 +730,7 @@ export const AnalysisProgress: React.FC<AnalysisProgressProps> = ({
                 sx={{
                   mt: 1,
                   bgcolor: 'rgba(239, 68, 68, 0.2)',
-                  color: '#fca5a5',
+                  color: '#b91c1c',
                   fontSize: '0.75rem'
                 }}
               />
@@ -756,14 +753,14 @@ export const AnalysisProgress: React.FC<AnalysisProgressProps> = ({
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button 
+          <Button
             onClick={() => setAbortDialogOpen(false)}
             disabled={aborting}
             sx={{ textTransform: 'none' }}
           >
             Cancel
           </Button>
-          <Button 
+          <Button
             onClick={handleAbortAnalysis}
             variant="contained"
             color="error"

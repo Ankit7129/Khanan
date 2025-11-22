@@ -49,7 +49,7 @@ export default function LoginPage() {
   const [redirecting, setRedirecting] = useState(false);
   const [fontPreference, setFontPreference] = useState<'small' | 'default' | 'large'>('default');
   const [language, setLanguage] = useState('en');
-  const [isDarkHeader, setIsDarkHeader] = useState(true);
+  const [isDarkHeader, setIsDarkHeader] = useState(false);
   const headerTopBackground = useMemo(() => (isDarkHeader ? '#16151D' : '#F5F7FA'), [isDarkHeader]);
   const headerTopColor = useMemo(() => (isDarkHeader ? '#FFFFFF' : '#1F2937'), [isDarkHeader]);
   const headerMutedColor = useMemo(() => (isDarkHeader ? 'rgba(255,255,255,0.65)' : 'rgba(31,41,55,0.65)'), [isDarkHeader]);
@@ -252,7 +252,7 @@ export default function LoginPage() {
         component="header"
         sx={{
           width: '100%',
-          boxShadow: '0 8px 24px rgba(17, 24, 39, 0.25)',
+          boxShadow: '0 8px 24px rgba(148, 163, 184, 0.18)',
           bgcolor: headerTopBackground,
         }}
       >
@@ -467,8 +467,8 @@ export default function LoginPage() {
           sx={{
             position: 'fixed',
             inset: 0,
-            backgroundColor: 'rgba(15, 23, 42, 0.82)',
-            backdropFilter: 'blur(6px)',
+            backgroundColor: 'rgba(248, 250, 252, 0.88)',
+            backdropFilter: 'blur(10px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -486,7 +486,7 @@ export default function LoginPage() {
               borderRadius: 3,
               backgroundColor: '#ffffff',
               border: '1px solid rgba(148, 163, 184, 0.2)',
-              boxShadow: '0 16px 48px rgba(15, 23, 42, 0.35)',
+              boxShadow: '0 24px 48px rgba(148, 163, 184, 0.32)',
               opacity: showLoginModal ? 1 : 0,
               transform: showLoginModal ? 'translateY(0)' : 'translateY(20px)',
               transition: 'opacity 220ms ease, transform 220ms ease',
@@ -504,13 +504,13 @@ export default function LoginPage() {
                 position: 'absolute',
                 top: 12,
                 right: 12,
-                color: '#9CA3AF',
-                backgroundColor: 'rgba(243, 244, 246, 0.8)',
+                color: '#64748B',
+                backgroundColor: 'rgba(226, 232, 240, 0.9)',
                 '&:hover': {
-                  backgroundColor: 'rgba(229, 231, 235, 0.95)',
+                  backgroundColor: 'rgba(203, 213, 225, 0.95)',
                 },
                 '&.Mui-disabled': {
-                  color: '#D1D5DB',
+                  color: '#CBD5F5',
                 },
               }}
             >
@@ -634,7 +634,7 @@ export default function LoginPage() {
                   }
                 }}
               >
-                {loading ? <CircularProgress size={24} sx={{ color: '#1a1a2e' }} /> : 'Login'}
+                {loading ? <CircularProgress size={24} sx={{ color: '#0f172a' }} /> : 'Login'}
               </Button>
             </form>
 
@@ -649,9 +649,9 @@ export default function LoginPage() {
         sx={{
           position: 'relative',
           overflow: 'hidden',
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          color: '#F3F4F6',
-          borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+          background: 'linear-gradient(145deg, #f8fafc 0%, #e2e8f0 55%, #f8fafc 100%)',
+          color: '#0f172a',
+          borderTop: '1px solid rgba(148, 163, 184, 0.35)',
         }}
       >
         <Box
@@ -675,21 +675,21 @@ export default function LoginPage() {
                   src="https://cdn.digitalindiacorporation.in/wp-content/themes/di-child/assets/images/dilogonew.svg.gzip"
                   alt="Digital India"
                   loading="lazy"
-                  sx={{ height: 64, width: 'auto' }}
+                  sx={{ height: 64, width: 'auto', filter: 'drop-shadow(0 8px 18px rgba(148, 163, 184, 0.25))' }}
                 />
                 <Button
                   variant="outlined"
                   sx={{
-                    color: '#FDE68A',
-                    borderColor: 'rgba(253, 224, 71, 0.4)',
+                    color: '#0f172a',
+                    borderColor: 'rgba(148, 163, 184, 0.4)',
                     borderWidth: 1.5,
                     borderRadius: 999,
                     px: 4,
                     py: 1.2,
                     alignSelf: 'flex-start',
                     '&:hover': {
-                      borderColor: 'rgba(253, 224, 71, 0.7)',
-                      backgroundColor: 'rgba(253, 224, 71, 0.12)',
+                      borderColor: 'rgba(100, 116, 139, 0.65)',
+                      backgroundColor: 'rgba(203, 213, 225, 0.2)',
                     },
                   }}
                 >
@@ -698,8 +698,8 @@ export default function LoginPage() {
               </Stack>
               <Stack spacing={1.5}>
                 <Typography variant="body2" sx={{
-                  backgroundColor: 'rgba(253, 224, 71, 0.2)',
-                  color: '#FDE68A',
+                  backgroundColor: 'rgba(226, 232, 240, 0.7)',
+                  color: '#0f172a',
                   borderRadius: 999,
                   px: 3,
                   py: 1,
@@ -710,14 +710,15 @@ export default function LoginPage() {
                 </Typography>
                 <Typography variant="body1" fontWeight={600}>
                   Visitor: <Box component="span" sx={{
-                    backgroundColor: '#111827',
-                    color: '#FCD34D',
+                    backgroundColor: '#FEF3C7',
+                    color: '#92400E',
                     px: 1.5,
                     py: 0.5,
                     borderRadius: 1,
                     fontFamily: 'monospace',
                     ml: 1,
                     letterSpacing: 2,
+                    boxShadow: '0 6px 16px rgba(251, 191, 36, 0.25)',
                   }}>{formattedVisitorCount}</Box>
                 </Typography>
               </Stack>
@@ -730,7 +731,7 @@ export default function LoginPage() {
             >
               {FOOTER_SECTIONS.map((section) => (
                 <Stack key={section.title} spacing={2}>
-                  <Typography variant="subtitle1" fontWeight={700} sx={{ color: '#F9FAFB' }}>
+                  <Typography variant="subtitle1" fontWeight={700} sx={{ color: '#0f172a' }}>
                     {section.title}
                   </Typography>
                   <Stack spacing={1.5}>
@@ -740,9 +741,9 @@ export default function LoginPage() {
                         href="#"
                         underline="hover"
                         sx={{
-                          color: '#BFDBFE',
+                          color: '#2563EB',
                           fontWeight: 500,
-                          '&:hover': { color: '#E0F2FE' },
+                          '&:hover': { color: '#1D4ED8' },
                         }}
                       >
                         {link}
@@ -752,12 +753,12 @@ export default function LoginPage() {
                 </Stack>
               ))}
               <Stack spacing={2} maxWidth={{ xs: '100%', md: 320 }}>
-                <Typography variant="subtitle1" fontWeight={700} sx={{ color: '#F9FAFB' }}>
+                <Typography variant="subtitle1" fontWeight={700} sx={{ color: '#0f172a' }}>
                   Contact Us
                 </Typography>
                 <Stack spacing={1.5}>
                   {FOOTER_CONTACT.map((line) => (
-                    <Typography key={line} variant="body2" sx={{ color: '#E5E7EB' }}>
+                    <Typography key={line} variant="body2" sx={{ color: '#475569' }}>
                       {line}
                     </Typography>
                   ))}
@@ -766,7 +767,7 @@ export default function LoginPage() {
                     src="https://cdn.digitalindiacorporation.in/wp-content/themes/di-child/assets/images/india-gov.png"
                     alt="India.gov.in"
                     loading="lazy"
-                    sx={{ height: 36, width: 'auto', mt: 1 }}
+                    sx={{ height: 36, width: 'auto', mt: 1, filter: 'drop-shadow(0 6px 12px rgba(148, 163, 184, 0.25))' }}
                   />
                 </Stack>
               </Stack>
@@ -775,10 +776,10 @@ export default function LoginPage() {
         </Box>
         <Box
           sx={{
-            bgcolor: 'rgba(0, 0, 0, 0.6)',
+            bgcolor: 'rgba(255, 255, 255, 0.75)',
             px: { xs: 3, sm: 6, md: 10 },
             py: { xs: 3, sm: 2.5 },
-            borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+            borderTop: '1px solid rgba(148, 163, 184, 0.35)',
           }}
         >
           <Stack
@@ -786,7 +787,7 @@ export default function LoginPage() {
             spacing={{ xs: 2, sm: 4 }}
             alignItems={{ xs: 'flex-start', sm: 'center' }}
             justifyContent="space-between"
-            sx={{ color: '#E5E7EB', fontSize: 14 }}
+            sx={{ color: '#475569', fontSize: 14 }}
           >
             <Typography>
               © 2024 - Copyright Ministry of Electronics & IT, Government of India. All rights reserved.
@@ -795,20 +796,20 @@ export default function LoginPage() {
               <Link
                 href="#"
                 underline="hover"
-                sx={{ color: '#BFDBFE', fontWeight: 500, '&:hover': { color: '#E0F2FE' } }}
+                sx={{ color: '#2563EB', fontWeight: 500, '&:hover': { color: '#1D4ED8' } }}
               >
                 Terms and Conditions
               </Link>
               <Link
                 href="#"
                 underline="hover"
-                sx={{ color: '#BFDBFE', fontWeight: 500, '&:hover': { color: '#E0F2FE' } }}
+                sx={{ color: '#2563EB', fontWeight: 500, '&:hover': { color: '#1D4ED8' } }}
               >
                 Feedback
               </Link>
             </Stack>
           </Stack>
-          <Typography sx={{ mt: 2, color: '#D1D5DB', fontSize: 13 }}>
+          <Typography sx={{ mt: 2, color: '#64748b', fontSize: 13 }}>
             The information provided on this website is sourced from publicly available domains.
           </Typography>
         </Box>
